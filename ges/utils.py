@@ -987,3 +987,4 @@ def replace_unprotected(G, I):
         if not strongly_protected(a, b, E, I):
             E[b, a] = 1
     return E
+
