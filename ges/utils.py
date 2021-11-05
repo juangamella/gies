@@ -929,3 +929,22 @@ def delete(array, mask, axis=None):
         return np.delete(array, idx, axis)
     else:
         return np.delete(array, mask, axis)
+
+
+
+def maximum_cardinality_search(V, A):
+    order = []
+    V_copy = V.copy()
+    A_copy = A.copy()
+    W = [0]*len(V)
+    for i in range(len(V)):
+        k = np.argmax(W)
+        m = V_copy[k]
+        V_copy = np.delete(V_copy, k)
+        W = np.delete(W, k)
+        order.append(m)
+        W += A_copy[V_copy, m]
+        A_copy[:, m] = 0
+        A_copy[m, :] = 0
+    return order
+
