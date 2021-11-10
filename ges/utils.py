@@ -931,24 +931,89 @@ def delete(array, mask, axis=None):
         return np.delete(array, mask, axis)
 
 
-def maximum_cardinality_search(V, A):
-    order = []
-    V_copy = V.copy()
-    A_copy = A.copy()
-    W = [0]*len(V)
-    for i in range(len(V)):
-        k = np.argmax(W)
-        m = V_copy[k]
-        V_copy = np.delete(V_copy, k)
-        W = np.delete(W, k)
-        order.append(m)
-        W += A_copy[V_copy, m]
-        A_copy[:, m] = 0
-        A_copy[m, :] = 0
-    return order
+def maximum_cardinality_search(G, nodes = None):
+    """
+    Finds a perfect elimination ordering for an undirected graph.
+
+    Parameters
+    ----------
+    G : np.array
+        The adjacency matrix of an undirected graph G
+
+    nodes : list, optional
+        An ordering of the nodes of G, if none is passed, the numerical ordering is used
+
+    Returns
+    -------
+    ordering : A perfect elimination ordering for G
+    Note: the ordering is not unique and depends on the order of V
+
+    Example
+    -------
+    >>> G = np.array([[0, 1, 0, 0, 1, 0, 0],
+    ...              [1, 0, 1, 0, 1, 1, 0],
+    ...              [0, 1, 0, 1, 1, 1, 1],
+    ...              [0, 0, 1, 0, 0, 0, 1],
+    ...              [1, 1, 1, 0, 0, 1, 0],
+    ...              [0, 1, 1, 0, 1, 0, 0],
+    ...              [0, 0, 1, 1, 0, 0, 0]])
+    >>> V = [2, 4, 5, 1, 3, 0, 6]
+    >>> maximum_cardinality_search(G, V)
+    [2, 4, 5, 1, 0, 3, 6]
+
+    """
+    # Testing for any directed edges
+    if np.any(only_directed(G)):
+        raise ValueError("G has directed edges")
+    # If V = None, use the numerical ordering
+    if not nodes:
+        nodes = list(range(len(G)))
+    ordering = []
+    nodes_copy = nodes.copy()
+    G_copy = G.copy()
+    # Weights for the ordering
+    W = [0]*len(nodes)
+    for i in range(len(nodes)):
+        # Find the first index with max weight and its node value:
+        arg_max = np.argmax(W)
+        node_max = nodes_copy[arg_max]
+        # Delete the node from the list of nodes and weights
+        nodes_copy = np.delete(nodes_copy, arg_max)
+        W = np.delete(W, arg_max)
+        # Append node_max to the ordering
+        ordering.append(node_max)
+        # Add weight to the remaining neighbors of node_max
+        W += G_copy[nodes_copy, node_max]
+        # Remove all edges which are connected to node_max
+        G_copy[:, node_max] = 0
+        G_copy[node_max, :] = 0
+    return ordering
 
 
 def strongly_protected(a, b, A, I):
+    """
+    Checks if the edge a -> b is strongly protected
+
+    Parameters
+    ----------
+    a : int
+        starting node of the edge
+    b : int
+        ending node of the edge
+    A : np.array
+        The adjacency matrix of the graph G
+    I : list
+        Intervention sets
+
+    Returns
+    -------
+    strongly_protected : bool
+        if the edge a -> b is strongly protected
+
+    Example
+    -------
+    """
+
     dirA = only_directed(A)
     undirA = only_undirected(A)
     if dirA[a, b] == 0:
@@ -977,6 +1042,26 @@ def strongly_protected(a, b, A, I):
 
 
 def replace_unprotected(G, I):
+    """
+    Transforms a partial I-essential graph into an I-essential graph
+
+    Parameters
+    ----------
+    G : np.array
+        The adjacency matrix of the partially I-essential graph
+
+    I : list
+        Intervention sets
+
+    Returns
+    -------
+    E : np.array
+        I-essential graph of G
+
+    Example
+    -------
+
+    """
     dirG = only_directed(G)
     E = G.copy()
     fro, to = np.where(dirG == 1)
@@ -988,3 +1073,49 @@ def replace_unprotected(G, I):
             E[b, a] = 1
     return E
 
+
+def orient_edges(G, ordering):
+    """
+    Orients the edges of the undirected graph G according to the ordering
+
+    Parameters
+    ----------
+    G : np.array
+        The adjacency matrix of an undirected graph G
+
+    ordering : list
+        An ordering of the nodes of G
+
+    Returns
+    -------
+    G_new : np.array
+            A directed graph with the same skeleton as G with oriented edges according to ordering
+
+    Example
+    -------
+    >>> G = np.array([[0, 1, 0, 0, 1, 0, 0],
+    ...              [1, 0, 1, 0, 1, 1, 0],
+    ...              [0, 1, 0, 1, 0, 1, 1],
+    ...              [0, 0, 1, 0, 0, 0, 1],
+    ...              [1, 1, 0, 0, 0, 1, 0],
+    ...              [0, 1, 1, 0, 1, 0, 0],
+    ...              [0, 0, 1, 1, 0, 0, 0]])
+    >>> ordering = [1, 4, 0, 2, 3, 5, 6]
+    >>> orient_edges(G, ordering)
+
+    """
+    # Testing for any directed edges
+    if np.any(only_directed(G)):
+        raise ValueError("G has directed edges")
+    G_new = G.copy()
+    # Orienting the edges of G according to the ordering
+    for i in ordering:
+        # Orient all undirected edges adjacent to i outwards
+        G_new[:, i] = np.where(G_new[i, :] != 0, 0, G_new[:, i])
+    return G_new
+
+
+# To run the doctests
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
