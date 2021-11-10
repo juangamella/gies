@@ -931,7 +931,7 @@ def delete(array, mask, axis=None):
         return np.delete(array, mask, axis)
 
 
-def maximum_cardinality_search(G, nodes = None):
+def maximum_cardinality_search(G, nodes=None):
     """
     Finds a perfect elimination ordering for an undirected graph.
 
@@ -990,20 +990,21 @@ def maximum_cardinality_search(G, nodes = None):
     return ordering
 
 
-def strongly_protected(a, b, A, I):
+def strongly_protected(a, b, G, I = [[]]):
     """
-    Checks if the edge a -> b is strongly protected
+    Checks if the edge a -> b is strongly protected, based on Definition 14 in GIES (Hauser and Bühlmann)
+    paper
 
     Parameters
     ----------
     a : int
-        starting node of the edge
+        edge start position
     b : int
-        ending node of the edge
-    A : np.array
+        edge end position
+    G : np.array
         The adjacency matrix of the graph G
     I : list
-        Intervention sets
+        List of intervention sets
 
     Returns
     -------
@@ -1012,31 +1013,58 @@ def strongly_protected(a, b, A, I):
 
     Example
     -------
+    >>> a = 2
+    >>> b = 6
+    >>> G = np.array([[0, 1, 0, 0, 1, 0, 0],
+    ...              [1, 0, 1, 0, 1, 1, 0],
+    ...              [0, 1, 0, 1, 0, 1, 1],
+    ...              [0, 0, 0, 0, 0, 0, 1],
+    ...              [1, 1, 0, 0, 0, 1, 0],
+    ...              [0, 0, 0, 0, 0, 0, 0],
+    ...              [0, 0, 0, 0, 0, 0, 0]])
+    >>> I = [[], [3]]
+    >>> strongly_protected(a, b, G, I)
+    True
+
     """
+    # Get the directed and undirected copies of G
+    dirG = only_directed(G)
+    undirG = only_undirected(G)
 
-    dirA = only_directed(A)
-    undirA = only_undirected(A)
-    if dirA[a, b] == 0:
+    # Check if a -> b is in G
+    if dirG[a, b] == 0:
         raise ValueError("There is no directed edge %d -> %d " % (a, b))
+    # If a or b (but not both) are in an intervention set of I then a -> b is strongly protected.
     for i in I:
-        if len(set(i) & set({a, b})) == 1:
-            print("intervention set")
+        if len(set(i) & {a, b}) == 1:
             return True
 
-    a_in = np.where(dirA[:, a] == 1)[0]
+    # Check for configuration (a):
+    # Get all the incoming edges of a
+    a_in = np.where(dirG[:, a] == 1)[0]
+    # For every incoming edge c -> a check that c is not adjacent to b
     for c in a_in:
-        if A[b, c] == 0 and A[c, b] == 0:
-            print("(a)")
+        if G[b, c] == 0 and G[c, b] == 0:
             return True
 
-    b_in = np.where(dirA[:, b] == 1)[0]
+    # Get all the incoming edges of b
+    b_in = np.where(dirG[:, b] == 1)[0]
+
     for c1 in b_in:
-        if A[c1, a] == 0 and c1 != a:
-            print("(b) or (c)")
+        # Check configuration (b)
+        # Check that c1 is not adjacent to a:
+        if c1 != a and G[c1, a] == 0 and G[a, c1] == 0:
             return True
+
+        # Check configuration (c)
+        # Check that there is the edge a -> c1
+        elif c1 != a and G[c1, a] == 0 and G[a, c1] == 1:
+            return True
+
+        # Check configuration (d)
         for c2 in b_in:
-            if c1 != c2 and undirA[a, c1] == 1 and undirA[a, c2] == 1:
-                print("(d)")
+            # Check that c1 - a and c2 - a
+            if c1 != c2 and undirG[a, c1] == 1 and undirG[a, c2] == 1:
                 return True
     return False
 
