@@ -965,7 +965,7 @@ def maximum_cardinality_search(G, nodes=None):
     # Testing for any directed edges
     if np.any(only_directed(G)):
         raise ValueError("G has directed edges")
-    # If V = None, use the numerical ordering
+    # If nodes = None, use the numerical ordering
     if not nodes:
         nodes = list(range(len(G)))
     ordering = []
@@ -1069,7 +1069,7 @@ def strongly_protected(a, b, G, I = [[]]):
     return False
 
 
-def replace_unprotected(G, I):
+def replace_unprotected(G, I = [[]]):
     """
     Transforms a partial I-essential graph into an I-essential graph
 
@@ -1078,8 +1078,8 @@ def replace_unprotected(G, I):
     G : np.array
         The adjacency matrix of the partially I-essential graph
 
-    I : list
-        Intervention sets
+    I : list of lists
+       Set of intervention sets
 
     Returns
     -------
@@ -1088,17 +1088,48 @@ def replace_unprotected(G, I):
 
     Example
     -------
+    >>> G = np.array([[0, 0, 0, 0, 1, 0, 0],
+    ...              [1, 0, 0, 0, 1, 1, 0],
+    ...              [0, 1, 0, 1, 0, 1, 1],
+    ...              [0, 0, 0, 0, 0, 0, 1],
+    ...              [0, 0, 0, 0, 0, 1, 0],
+    ...              [0, 0, 0, 0, 0, 0, 0],
+    ...              [0, 0, 0, 0, 0, 0, 0]])
+    >>> I = [[], [3]]
+    >>> replace_unprotected(G, I)
+    array([[0, 1, 0, 0, 1, 0, 0],
+           [1, 0, 1, 0, 1, 1, 0],
+           [0, 1, 0, 1, 0, 1, 1],
+           [0, 0, 0, 0, 0, 0, 1],
+           [1, 1, 0, 0, 0, 1, 0],
+           [0, 0, 0, 0, 0, 0, 0],
+           [0, 0, 0, 0, 0, 0, 0]])
 
     """
+    # All directed edges are candidates for strongly unprotected/protected edges
     dirG = only_directed(G)
-    E = G.copy()
     fro, to = np.where(dirG == 1)
     edge_candidates = list(zip(fro, to))
-    for edge in edge_candidates:
-        a = edge[0]
-        b = edge[1]
-        if not strongly_protected(a, b, E, I):
-            E[b, a] = 1
+
+    E = G.copy()
+    while True:
+        strongly_unprotected = []
+        # With every for loop we create a partial I-essential graph of the previous one
+        for index, edge in enumerate(edge_candidates):
+            # Get the starting and ending position of the edge
+            a = edge[0]
+            b = edge[1]
+            # For every edge check if it is strongly unprotected
+            if not strongly_protected(a, b, E, I):
+                # Convert edge to undirected
+                E[b, a] = 1
+                # Append index of unprotected edge to list
+                strongly_unprotected.append(index)
+        # If there are no strongly unprotected edges then E is I-essential
+        if not strongly_unprotected:
+            break
+        # Delete all strongly unprotected edges from candidates
+        edge_candidates = np.delete(edge_candidates, strongly_unprotected, axis = 0)
     return E
 
 
