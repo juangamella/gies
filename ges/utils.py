@@ -1135,20 +1135,20 @@ def replace_unprotected(G, I = [[]]):
 
 def orient_edges(G, ordering):
     """
-    Orients the edges of the undirected graph G according to the ordering
+    Orients the edges of an undirected subgraph of G induced by ordering
 
     Parameters
     ----------
     G : np.array
-        The adjacency matrix of an undirected graph G
+        The adjacency matrix of a graph G
 
     ordering : list
-        An ordering of the nodes of G
+        An ordering of the nodes of an undirected subgraph of G
 
     Returns
     -------
     G_new : np.array
-            A directed graph with the same skeleton as G with oriented edges according to ordering
+            A graph with the same skeleton as G with oriented edges in the subgraph induced by ordering
 
     Example
     -------
@@ -1159,18 +1159,26 @@ def orient_edges(G, ordering):
     ...              [1, 1, 0, 0, 0, 1, 0],
     ...              [0, 1, 1, 0, 1, 0, 0],
     ...              [0, 0, 1, 1, 0, 0, 0]])
-    >>> ordering = [1, 4, 0, 2, 3, 5, 6]
+    >>> ordering = [1, 4, 0]
     >>> orient_edges(G, ordering)
+    array([[0, 0, 0, 0, 0, 0, 0],
+           [1, 0, 1, 0, 1, 1, 0],
+           [0, 1, 0, 1, 0, 1, 1],
+           [0, 0, 1, 0, 0, 0, 1],
+           [1, 0, 0, 0, 0, 1, 0],
+           [0, 1, 1, 0, 1, 0, 0],
+           [0, 0, 1, 1, 0, 0, 0]])
 
     """
-    # Testing for any directed edges
-    if np.any(only_directed(G)):
-        raise ValueError("G has directed edges")
+    # Testing for any directed edges in the subgraph
+    if np.any(only_directed(G)[ordering, :][:, ordering]):
+        raise ValueError("the subgraph has directed edges")
+
     G_new = G.copy()
-    # Orienting the edges of G according to the ordering
+    # Orienting the edges of the subgraph induced by the ordering
     for i in ordering:
-        # Orient all undirected edges adjacent to i outwards
-        G_new[:, i] = np.where(G_new[i, :] != 0, 0, G_new[:, i])
+        # Orient all undirected edges adjacent to i in the subgraph outwards
+        G_new[ordering, i] = np.where(G_new[i, ordering] != 0, 0, G_new[ordering, i])
     return G_new
 
 
