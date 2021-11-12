@@ -798,7 +798,7 @@ def cartesian(arrays, out=None, dtype=np.byte):
 
     Examples
     --------
-    >>> cartesian(([1, 2, 3], [4, 5], [6, 7]))
+    >>> cartesian(([1, 2, 3], [4, 5], [6, 7]), dtype=int)
     array([[1, 4, 6],
            [1, 4, 7],
            [1, 5, 6],
@@ -990,7 +990,7 @@ def maximum_cardinality_search(G, nodes=None):
     return ordering
 
 
-def strongly_protected(a, b, G, I = [[]]):
+def strongly_protected(a, b, G, I=[[]]):
     """
     Checks if the edge a -> b is strongly protected, based on Definition 14 in GIES (Hauser and Bühlmann)
     paper
@@ -1069,7 +1069,7 @@ def strongly_protected(a, b, G, I = [[]]):
     return False
 
 
-def replace_unprotected(G, I = [[]]):
+def replace_unprotected(G, I=[[]]):
     """
     Transforms a partial I-essential graph into an I-essential graph
 
@@ -1129,7 +1129,7 @@ def replace_unprotected(G, I = [[]]):
         if not strongly_unprotected:
             break
         # Delete all strongly unprotected edges from candidates
-        edge_candidates = np.delete(edge_candidates, strongly_unprotected, axis = 0)
+        edge_candidates = np.delete(edge_candidates, strongly_unprotected, axis=0)
     return E
 
 
