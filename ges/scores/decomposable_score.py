@@ -50,11 +50,12 @@ import copy
 
 class DecomposableScore():
 
-    def __init__(self, data, cache=True, debug=0):
+    def __init__(self, data, interv, cache=True, debug=0):
         self._data = copy.deepcopy(data)
         self._cache = {} if cache else None
         self._debug = debug
         self.p = None
+        self.interv = interv
 
     def local_score(self, x, pa):
         """
