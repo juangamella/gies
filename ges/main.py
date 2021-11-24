@@ -401,6 +401,8 @@ def insert(x, y, T, A, I):
         raise ValueError("Some nodes in T=%s are adjacent to x=%d" % (T, x))
 
     new_A = A.copy()
+    A_undir = utils.only_undirected(A)
+
     # Finding the nodes of the chain component of y
     chain_comp_y = utils.chain_component(y, A)
     # Getting set C = T u NA_xy
@@ -408,7 +410,6 @@ def insert(x, y, T, A, I):
     # Getting all the nodes of the chain component in the right order
     nodes = list(C) + [y] + list(chain_comp_y - {y} - C)
     # Computing the perfect elimination ordering according to the above order
-    A_undir = utils.only_undirected(A)
     ordering = utils.maximum_cardinality_search(A_undir, nodes)
     # Orienting the edges of the chain component according to the perfect elimination ordering
     new_A = utils.orient_edges(A, ordering)
@@ -517,7 +518,7 @@ def score_valid_insert_operators(x, y, A, cache, debug=0):
 #    operators) function in valid_delete_operators
 
 
-def delete(x, y, H, A):
+def delete(x, y, H, A, I):
     """
     Applies the delete operator:
       1) deletes the edge x -> y or x - y
@@ -538,6 +539,8 @@ def delete(x, y, H, A):
         a subset of the neighbors of y which are adjacent to x
     A : np.array
         the current adjacency matrix
+    I : list of lists
+        list of interventions
 
     Returns
     -------
@@ -554,15 +557,32 @@ def delete(x, y, H, A):
     if not H <= na_yx:
         raise ValueError(
             "The given set H is not valid, H=%s is not a subset of NA_yx=%s" % (H, na_yx))
+
     # Apply operator
     new_A = A.copy()
+    A_undir = utils.only_undirected(A)
+    # Finding the nodes of the chain component of y
+    chain_comp_y = utils.chain_component(y, A)
+    # Getting the set C = NA_yx \ H
+    C = na_yx - H
+    # Case 1: x is a neighbor of y
+    if x in utils.neighbors(y, A):
+        # Getting all the nodes of the chain component in the order: C, x, y, ...
+        nodes = list(C) + [x] + [y] + list(chain_comp_y - {y} - C)
+        # Computing the perfect elimination ordering according to the above order
+        ordering = utils.maximum_cardinality_search(A_undir, nodes)
+    # Case 2: x is not a neighbor of y
+    else:
+        # Getting all the nodes of the chain component in the order: C, y, ...
+        nodes = list(C) + [y] + list(chain_comp_y - {y} - C)
+        # Computing the perfect elimination ordering according to the above order
+        ordering = utils.maximum_cardinality_search(A_undir, nodes)
+    # Orienting the edges of the chain component according to the perfect elimination ordering
+    new_A = utils.orient_edges(A, ordering)
     # delete the edge between x and y
     new_A[x, y], new_A[y, x] = 0, 0
-    # orient the undirected edges between y and H towards H
-    new_A[list(H), y] = 0
-    # orient any undirected edges between x and H towards H
-    n_x = utils.neighbors(x, A)
-    new_A[list(H & n_x), x] = 0
+    # Transforming the partial I-essential graph into an I-essential graph
+    new_A = utils.replace_unprotected(new_A, I)
     return new_A
 
 
@@ -629,7 +649,7 @@ def score_valid_delete_operators(x, y, A, cache, debug=0):
               na_yx - set(H), "validity:", cond_1) if debug > 1 else None
         if cond_1:
             # Apply operator
-            new_A = delete(x, y, H, A)
+            new_A = delete(x, y, H, A, cache.interv)
             # Compute the change in score
             aux = (na_yx - set(H)) | utils.pa(y, A) | {x}
             # print(x,y,H,"na_yx:",na_yx,"old:",aux,"new:", aux - {x})
