@@ -983,7 +983,7 @@ def maximum_cardinality_search(G, nodes=None):
         # Append node_max to the ordering
         ordering.append(node_max)
         # Add weight to the remaining neighbors of node_max
-        W += G_copy[nodes_copy, node_max]
+        W = W + G_copy[nodes_copy, node_max]
         # Remove all edges which are connected to node_max
         G_copy[:, node_max] = 0
         G_copy[node_max, :] = 0
@@ -1170,10 +1170,6 @@ def orient_edges(G, ordering):
            [0, 0, 1, 1, 0, 0, 0]])
 
     """
-    # Testing for any directed edges in the subgraph
-    if np.any(only_directed(G)[ordering, :][:, ordering]):
-        raise ValueError("the subgraph has directed edges")
-
     G_new = G.copy()
     # Orienting the edges of the subgraph induced by the ordering
     for i in ordering:

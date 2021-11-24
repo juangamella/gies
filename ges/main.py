@@ -364,7 +364,7 @@ def turning_step(A, cache, debug=0):
 #    operators) function in score_valid_insert_operators
 
 
-def insert(x, y, T, A):
+def insert(x, y, T, A, I):
     """
     Applies the insert operator:
       1) adds the edge x -> y
@@ -380,6 +380,8 @@ def insert(x, y, T, A):
         a subset of the neighbors of y which are not adjacent to x
     A : np.array
         the current adjacency matrix
+    I : list of lists
+        list of interventions
 
     Returns
     -------
@@ -397,13 +399,23 @@ def insert(x, y, T, A):
         raise ValueError("Not all nodes in T=%s are neighbors of y=%d" % (T, y))
     elif A[T, x].any() or A[x, T].any():
         raise ValueError("Some nodes in T=%s are adjacent to x=%d" % (T, x))
-    # Apply operator
+
     new_A = A.copy()
-    # Add edge x -> y
+    # Finding the nodes of the chain component of y
+    chain_comp_y = utils.chain_component(y, A)
+    # Getting set C = T u NA_xy
+    C = utils.na(y, x, A) | set(T)
+    # Getting all the nodes of the chain component in the right order
+    nodes = list(C) + [y] + list(chain_comp_y - {y} - C)
+    # Computing the perfect elimination ordering according to the above order
+    A_undir = utils.only_undirected(A)
+    ordering = utils.maximum_cardinality_search(A_undir, nodes)
+    # Orienting the edges of the chain component according to the perfect elimination ordering
+    new_A = utils.orient_edges(A, ordering)
+    # Adding edge x -> y
     new_A[x, y] = 1
-    # Orient edges t - y to t -> y, for t in T
-    new_A[T, y] = 1
-    new_A[y, T] = 0
+    # Transforming the partial I-essential graph into an I-essential graph
+    new_A = utils.replace_unprotected(new_A, I)
     return new_A
 
 
@@ -484,7 +496,7 @@ def score_valid_insert_operators(x, y, A, cache, debug=0):
         # If both conditions hold, apply operator and compute its score
         if cond_1 and cond_2:
             # Apply operator
-            new_A = insert(x, y, T, A)
+            new_A = insert(x, y, T, A, cache.interv)
             # Compute the change in score
             aux = na_yxT | utils.pa(y, A)
             old_score = cache.local_score(y, aux)
