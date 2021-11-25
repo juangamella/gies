@@ -671,7 +671,7 @@ def score_valid_delete_operators(x, y, A, cache, debug=0):
 #    operators) function in score_valid_insert_operators
 
 
-def turn(x, y, C, A):
+def turn(x, y, C, A, I):
     """
     Applies the turning operator: For an edge x - y or x <- y,
       1) orients the edge as x -> y
@@ -687,6 +687,9 @@ def turn(x, y, C, A):
         a subset of the neighbors of y
     A : np.array
         the current adjacency matrix
+    I : list of lists
+        list of interventions
+
 
     Returns
     -------
@@ -704,12 +707,41 @@ def turn(x, y, C, A):
     if len({x, y} & C) > 0:
         raise ValueError("C should not contain x or y")
     # Apply operator
+    C = set(C)
     new_A = A.copy()
+    A_undir = utils.only_undirected(A)
+    # Case 1: directed edge y -> x
+    if A[x, y] == 0 and A[y, x] != 0:
+        # Finding the nodes of the chain component of x
+        chain_comp_x = utils.chain_component(x, A)
+        # Getting all the nodes of the chain component in the order: x, ...
+        nodes_x = [x] + list(chain_comp_x - {x})
+        # Computing the perfect elimination ordering according to the above order
+        ordering_x = utils.maximum_cardinality_search(A_undir, nodes_x)
+        # Orienting the edges of the chain component according to the perfect elimination ordering of x
+        new_A = utils.orient_edges(A, ordering_x)
+
+        # Finding the nodes of the chain component of y
+        chain_comp_y = utils.chain_component(y, A)
+        # Getting all the nodes of the chain component in the order: C, y ...
+        nodes_y = list(C) + [y] + list(chain_comp_y - {y} - C)
+        # Computing the perfect elimination ordering according to the above order
+        ordering_y = utils.maximum_cardinality_search(A_undir, nodes_y)
+    # Case 2: undirected edge y - x
+    else:
+        # Finding the nodes of the chain component of y
+        chain_comp_y = utils.chain_component(y, A)
+        # Getting all the nodes of the chain component in the order: C, y, x ...
+        nodes_y = list(C) + [y] + [x] + list(chain_comp_y - {y} - C - {x})
+        # Computing the perfect elimination ordering according to the above order
+        ordering_y = utils.maximum_cardinality_search(A_undir, nodes_y)
+    # Orienting the edges of the chain component according to the perfect elimination ordering of y
+    new_A = utils.orient_edges(new_A, ordering_y)
     # Turn edge x -> y
     new_A[y, x] = 0
     new_A[x, y] = 1
-    # Orient edges c -> y for c in C
-    new_A[y, list(C)] = 0
+    # Transforming the partial I-essential graph into an I-essential graph
+    new_A = utils.replace_unprotected(new_A, I)
     return new_A
 
 
@@ -833,7 +865,7 @@ def score_valid_turn_operators_dir(x, y, A, cache, debug=0):
               "T =", T, "validity:", cond_1, cond_2) if debug > 1 else None
         if cond_1 and cond_2:
             # Apply operator
-            new_A = turn(x, y, C, A)
+            new_A = turn(x, y, C, A, cache.interv)
             # Compute the change in score
             new_score = cache.local_score(y, utils.pa(
                 y, A) | C | {x}) + cache.local_score(x, utils.pa(x, A) - {y})
@@ -931,7 +963,7 @@ def score_valid_turn_operators_undir(x, y, A, cache, debug=0):
             continue
         # At this point C passes both conditions
         #   Apply operator
-        new_A = turn(x, y, C, A)
+        new_A = turn(x, y, C, A, cache.interv)
         #   Compute the change in score
         new_score = cache.local_score(y, utils.pa(
             y, A) | C | {x}) + cache.local_score(x, utils.pa(x, A) | (C & na_yx))
