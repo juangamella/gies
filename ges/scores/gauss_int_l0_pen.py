@@ -52,10 +52,12 @@ class GaussIntL0Pen(DecomposableScore):
         Parameters
         ----------
         data : list of numpy.ndarray
+            every matrix in the list corresponds to an environment,
             the nxp matrix containing the observations of each
             variable (each column corresponds to a variable).
         interv: a list of lists
-            a list of the interventions sets
+            a list of the interventions sets which
+            corresponds to the environments in data
         lmbda : float or NoneType, optional
             the regularization parameter. If None, defaults to the BIC
             score, i.e. lmbda = 1/2 * log(n), where n is the number of
@@ -79,10 +81,16 @@ class GaussIntL0Pen(DecomposableScore):
         self.sample_cov = np.array([np.cov(env, rowvar=False, ddof=0) for env in data])
         self.N = sum(self.n_obs)
         self.lmbda = 0.5 * np.log(self.N) if lmbda is None else lmbda
-        self.method = method
         self.num_not_interv = np.zeros(self.p)
         self.part_sample_cov = np.zeros((self.p, self.p, self.p))
+        # self.method = method
 
+        # Check that the interventions form a conservative family of targets
+        for j in range(self.p):
+            if sum(i.count(j) for i in self.interv) == len(data):
+                raise ValueError("The family of targets is not conservative")
+
+        # Computing the numbers of non-interventions of a variable and the corresponding partial covariance matrix
         for k in range(self.p):
             for (i, n) in enumerate(self.n_obs):
                 if k not in set(self.interv[i]):
@@ -226,6 +234,12 @@ class GaussIntL0Pen(DecomposableScore):
         """
         pa = list(pa)
         b = np.zeros(self.p)
+        S_k = self.part_sample_cov[k]
+        S_kk = S_k[k, k]
+        S_pa_k = S_k[pa, :][:, k]
+        b[pa] = _regress(k, pa, S_k)
+        sigma = S_kk - b[pa] @ S_pa_k
+
         # Compute the regression coefficients from a least squares
         # regression on the raw data
         #if self.method == 'raw':
@@ -250,9 +264,4 @@ class GaussIntL0Pen(DecomposableScore):
         #         coef = np.linalg.solve(cov_parents, cov_j)
         #         sigma = sigma - cov_j @ coef
         #         b[parents] = coef
-        S_k = self.part_sample_cov[k]
-        S_kk = S_k[k, k]
-        S_pa_k = S_k[pa, :][:, k]
-        b[pa] = _regress(k, pa, S_k)
-        sigma  = S_kk - b[pa] @ S_pa_k
         return b, sigma
