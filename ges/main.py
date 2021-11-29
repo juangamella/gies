@@ -74,16 +74,20 @@ def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], it
 
     Parameters
     ----------
-    data : numpy.ndarray
-        The n x p array containing the observations, where columns
+    data : list of numpy.ndarray
+        every matrix in the list corresponds to an environment,
+        the n x p matrix containing the observations, where columns
         correspond to variables and rows to observations.
+    interv: a list of lists
+        a list of the interventions sets which
+        corresponds to the environments in data
     A0 : numpy.ndarray, optional
-        The initial CPDAG on which GES will run, where where `A0[i,j]
+        The initial I-essential graph on which GIES will run, where where `A0[i,j]
         != 0` implies the edge `i -> j` and `A[i,j] != 0 & A[j,i] !=
         0` implies the edge `i - j`. Defaults to the empty graph
         (i.e. matrix of zeros).
     phases : [{'forward', 'backward', 'turning'}*], optional
-        Which phases of the GES procedure are run, and in which
+        Which phases of the GIES procedure are run, and in which
         order. Defaults to `['forward', 'backward', 'turning']`.
     iterate : bool, default=False
         Indicates whether the given phases should be iterated more
@@ -95,7 +99,7 @@ def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], it
     Returns
     -------
     estimate : numpy.ndarray
-        The adjacency matrix of the estimated CPDAG.
+        The adjacency matrix of the estimated I-essential graph
     total_score : float
         The score of the estimate.
 
@@ -140,7 +144,7 @@ def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], it
 
 def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate=False, debug=0):
     """
-    Run GES using a user defined score.
+    Run GIES using a user defined score.
 
     Parameters
     ----------
@@ -151,11 +155,11 @@ def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate
         ges.decomposable_score for more info).
 
     A0 : np.array, optional
-        the initial CPDAG on which GES will run, where where A0[i,j]
+        the initial I-essential graph on which GIES will run, where where A0[i,j]
         != 0 implies i -> j and A[i,j] != 0 & A[j,i] != 0 implies i -
         j. Defaults to the empty graph.
     phases : [{'forward', 'backward', 'turning'}*], optional
-        which phases of the GES procedure are run, and in which
+        which phases of the GIES procedure are run, and in which
         order. Defaults to ['forward', 'backward', 'turning'].
     iterate : bool, default=False
         Indicates whether the given phases should be iterated more
@@ -197,7 +201,8 @@ def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate
             while True:
                 score_change, new_A = fun(A, score_class, max(0, debug - 1))
                 if score_change > 0:
-                    A = utils.pdag_to_cpdag(new_A)
+                    # Transforming the partial I-essential graph into an I-essential graph
+                    A = utils.replace_unprotected(new_A, score_class.interv)
                     total_score += score_change
                 else:
                     break
@@ -213,12 +218,12 @@ def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate
 def forward_step(A, cache, debug=0):
     """
     Scores all valid insert operators that can be applied to the current
-    CPDAG A, and applies the highest scoring one.
+    I-essential graph A, and applies the highest scoring one.
 
     Parameters
     ----------
     A : np.array
-        the adjacency matrix of a CPDAG, where A[i,j] != 0 => i -> j
+        the adjacency matrix of an I-essential graph, where A[i,j] != 0 => i -> j
         and A[i,j] != 0 & A[j,i] != 0 => i - j.
     cache : DecomposableScore
         an instance of the score class, which computes the change in
@@ -233,8 +238,8 @@ def forward_step(A, cache, debug=0):
         the change in score resulting from applying the highest
         scoring operator (note, can be smaller than 0).
     new_A : np.array
-        the adjacency matrix of the PDAG resulting from applying the
-        operator (not yet a CPDAG).
+        the adjacency matrix of the partial I-essential graph resulting from applying the
+        operator (not yet a I-essential graph).
 
     """
     # Construct edge candidates (i.e. edges between non-adjacent nodes)
@@ -254,18 +259,19 @@ def forward_step(A, cache, debug=0):
         score, new_A, x, y, T = valid_operators[np.argmax(scores)]
         print("  Best operator: insert(%d, %d, %s) -> (%0.4f)" %
               (x, y, T, score)) if debug else None
+        print(new_A) if debug else None
         return score, new_A
 
 
 def backward_step(A, cache, debug=0):
     """
     Scores all valid delete operators that can be applied to the current
-    CPDAG A, and applies the highest scoring one.
+    I-essential graph A, and applies the highest scoring one.
 
     Parameters
     ----------
     A : np.array
-        the adjacency matrix of a CPDAG, where A[i,j] != 0 => i -> j
+        the adjacency matrix of a I-essential graph, where A[i,j] != 0 => i -> j
         and A[i,j] != 0 & A[j,i] != 0 => i - j.
     cache : DecomposableScore
         an instance of the score class, which computes the change in
@@ -280,8 +286,8 @@ def backward_step(A, cache, debug=0):
         the change in score resulting from applying the highest
         scoring operator (note, can be smaller than 0).
     new_A : np.array
-        the adjacency matrix of the PDAG resulting from applying the
-        operator (not yet a CPDAG).
+        the adjacency matrix of the partial I-essential graph resulting from applying the
+        operator (not yet an I-essential graph).
 
     """
     # Construct edge candidates:
@@ -307,18 +313,19 @@ def backward_step(A, cache, debug=0):
         score, new_A, x, y, H = valid_operators[np.argmax(scores)]
         print("  Best operator: delete(%d, %d, %s) -> (%0.4f)" %
               (x, y, H, score)) if debug else None
+        print(new_A) if debug else None
         return score, new_A
 
 
 def turning_step(A, cache, debug=0):
     """
     Scores all valid turn operators that can be applied to the current
-    CPDAG A, and applies the highest scoring one.
+    I-essential graph A, and applies the highest scoring one.
 
     Parameters
     ----------
     A : np.array
-        the adjacency matrix of a CPDAG, where A[i,j] != 0 => i -> j
+        the adjacency matrix of a I-essential graph, where A[i,j] != 0 => i -> j
         and A[i,j] != 0 & A[j,i] != 0 => i - j.
     cache : DecomposableScore
         an instance of the score class, which computes the change in
@@ -333,8 +340,8 @@ def turning_step(A, cache, debug=0):
         the change in score resulting from applying the highest
         scoring operator (note, can be smaller than 0).
     new_A : np.array
-        the adjacency matrix of the PDAG resulting from applying the
-        operator (not yet a CPDAG).
+        the adjacency matrix of the partial I-essential graph resulting from applying the
+        operator (not yet an I-essential graph).
 
     """
     # Construct edge candidates:
@@ -355,6 +362,7 @@ def turning_step(A, cache, debug=0):
         scores = [op[0] for op in valid_operators]
         score, new_A, x, y, C = valid_operators[np.argmax(scores)]
         print("  Best operator: turn(%d, %d, %s) -> (%0.4f)" % (x, y, C, score)) if debug else None
+        print(new_A) if debug else None
         return score, new_A
 
 # --------------------------------------------------------------------
@@ -367,8 +375,9 @@ def turning_step(A, cache, debug=0):
 def insert(x, y, T, A, I):
     """
     Applies the insert operator:
-      1) adds the edge x -> y
-      2) for all t in T, orients the previously undirected edge t -> y
+      1) Orients all edges of the chain component of y according to a perfect elimination ordering,
+        such that for all t in T the previously undirected edge becomes t -> y
+      2) adds the edge x -> y
 
     Parameters
     ----------
@@ -415,8 +424,6 @@ def insert(x, y, T, A, I):
     new_A = utils.orient_edges(A, ordering)
     # Adding edge x -> y
     new_A[x, y] = 1
-    # Transforming the partial I-essential graph into an I-essential graph
-    new_A = utils.replace_unprotected(new_A, I)
     return new_A
 
 
@@ -521,10 +528,11 @@ def score_valid_insert_operators(x, y, A, cache, debug=0):
 def delete(x, y, H, A, I):
     """
     Applies the delete operator:
-      1) deletes the edge x -> y or x - y
-      2) for every node h in H
+      1) Orients all edges of the chain component of y according to a perfect elimination ordering,
+        such that for every node h in H:
            * orients the edge y -> h
            * if the edge with x is undirected, orients it as x -> h
+      2) deletes the edge x -> y or x - y
 
     Note that H must be a subset of the neighbors of y which are
     adjacent to x. A ValueError exception is thrown otherwise.
@@ -581,8 +589,6 @@ def delete(x, y, H, A, I):
     new_A = utils.orient_edges(A, ordering)
     # delete the edge between x and y
     new_A[x, y], new_A[y, x] = 0, 0
-    # Transforming the partial I-essential graph into an I-essential graph
-    new_A = utils.replace_unprotected(new_A, I)
     return new_A
 
 
@@ -674,8 +680,10 @@ def score_valid_delete_operators(x, y, A, cache, debug=0):
 def turn(x, y, C, A, I):
     """
     Applies the turning operator: For an edge x - y or x <- y,
-      1) orients the edge as x -> y
-      2) for all c in C, orients the previously undirected edge c -> y
+      1) Orients all edges of the chain component of x according to a perfect elimination ordering if x <- y
+      2) Orients all edges of the chain component of y according to a perfect elimination ordering,
+        such that for all c in C, the previously undirected edge c -> y
+      3) orients the edge as x -> y
 
     Parameters
     ----------
@@ -740,8 +748,6 @@ def turn(x, y, C, A, I):
     # Turn edge x -> y
     new_A[y, x] = 0
     new_A[x, y] = 1
-    # Transforming the partial I-essential graph into an I-essential graph
-    new_A = utils.replace_unprotected(new_A, I)
     return new_A
 
 
