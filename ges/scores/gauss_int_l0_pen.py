@@ -107,6 +107,7 @@ class GaussIntL0Pen(DecomposableScore):
         #else:
         #    raise ValueError('Unrecognized method "%s"' % method)
 
+
     def full_score(self, A):
         """
         Given a DAG adjacency A, return the l0-penalized log-likelihood of
@@ -127,23 +128,14 @@ class GaussIntL0Pen(DecomposableScore):
         """
         # Compute MLE
         B, omegas = self._mle_full(A)
-        # Compute log-likelihood (without log(2π) term)
-        K = np.diag(1 / omegas)
-        I_B = np.eye(self.p) - B.T
-        log_term = self.n * np.log(omegas.prod())
-        if self.method == 'scatter':
-            # likelihood = 0.5 * self.n * (np.log(det_K) - np.trace(K @ I_B @ self._scatter @ I_B.T))
-            likelihood = log_term + self.n * np.trace(K @ I_B @ self._scatter @ I_B.T)
-        else:
-            # Center the data, exclude the intercept column
-            inv_cov = I_B.T @ K @ I_B
-            cov_term = 0
-            for i, x in enumerate(self._centered):
-                cov_term += x @ inv_cov @ x
-            likelihood = log_term + cov_term
-        #   Note: the number of parameters is the number of edges + the p marginal variances
-        l0_term = self.lmbda * (np.sum(A != 0) + 1 * self.p)
-        score = -0.5 * likelihood - l0_term
+        likelihood = 0
+        for j, sigma in enumerate(self.part_sample_cov):
+            gamma = 1 / omegas[j]
+
+            likelihood += self.num_not_interv[j] * (np.log(gamma) - gamma * (np.eye(self.p) - B)[:, j] @
+                                                    sigma @ (np.eye(self.p) - B)[:, j].T)
+        l0_term = self.lmbda * (np.sum(A != 0) + self.p)
+        score = 0.5*likelihood - l0_term
         return score
 
     # Note: self.local_score(...), with cache logic, already defined
@@ -211,6 +203,7 @@ class GaussIntL0Pen(DecomposableScore):
             parents = np.where(A[:, j] != 0)[0]
             B[:, j], omegas[j] = self._mle_local(j, parents)
         return B, omegas
+
 
     def _mle_local(self, k, pa):
         """Finds the maximum likelihood estimate of the local model
