@@ -606,6 +606,45 @@ def dag_to_cpdag(G):
     return cpdag
 
 
+def pdag_to_all_dags(P, indexes, tmp=[]):
+    if sum(sum(only_undirected(P))) > 0:
+        # Select a node which
+        #   1. has no outgoing edges in P (i.e. childless, is a sink)
+        #   2. all its neighbors are adjacent to all its adjacent nodes
+        found = False
+        i = 0
+        P_temp = np.zeros_like(P)
+        P_temp[np.ix_(indexes, indexes)] = P[np.ix_(indexes, indexes)]
+
+        for i in indexes:
+            P2 = P.copy()
+            indexes2 = indexes.copy()
+            # Check condition 1
+            sink = len(ch(i, P_temp)) == 0
+            # Check condition 2
+            neighbors_i = neighbors(i, P_temp)
+            adj_i = adj(i, P_temp)
+            adj_neighbors = np.all([adj_i - {y} <= adj(y, P_temp) for y in neighbors_i])
+            found = sink and adj_neighbors
+            # If found, orient all incident undirected edges and
+            # remove i from the subgraph
+            if found:
+                # Orient all incident undirected edges
+                for j in neighbors_i:
+                    P2[i, j] = 0
+                indexes2.remove(i)  # to keep track of the real
+                # variable indices
+                tmp = pdag_to_all_dags(P2, indexes2, tmp)
+        # A node which satisfies conditions 1,2 exists iff the
+        # PDAG admits a consistent extension
+        if not found:
+            #raise ValueError("PDAG does not admit consistent extension")
+            None
+    else:
+        tmp.append(P) if not any((P == x).all() for x in tmp) else None
+    return tmp
+
+
 def pdag_to_dag(P, debug=False):
     """
     Find a consistent extension of the given PDAG. Return a ValueError
