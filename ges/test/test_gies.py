@@ -1,3 +1,4 @@
+import subprocess
 import unittest
 import numpy as np
 import sempler
@@ -7,7 +8,6 @@ from ges.scores.gauss_int_l0_pen import GaussIntL0Pen
 
 
 class TestGies(unittest.TestCase):
-    np.random.seed(12)
     true_A = np.array([[0, 0, 1, 0, 0],
                        [0, 0, 1, 0, 0],
                        [0, 0, 0, 1, 1],
@@ -15,7 +15,7 @@ class TestGies(unittest.TestCase):
                        [0, 0, 0, 0, 0]])
     factorization = [(4, (2, 3)), (3, (2,)), (2, (0, 1)), (0, ()), (1, ())]
     W = true_A * np.random.uniform(1, 2, size=true_A.shape)
-    scm = sempler.LGANM(W, (0, 0), (0.3, 0.4))
+    scm = sempler.LGANM(W, (0, 2), (0, 1))
     p = len(W)
     n = 10000
     n1 = 10000
@@ -23,6 +23,10 @@ class TestGies(unittest.TestCase):
     obs_data = scm.sample(n=n)
     interv_data_1 = scm.sample(n=n1, do_interventions={1: (1, 3)})
     interv_data_2 = scm.sample(n=n2, do_interventions={2: (2, 3)})
+    data = [obs_data, interv_data_1, interv_data_2]
+    data = [data_x-np.mean(data_x, axis=0) for data_x in data]
+    datacsv = np.concatenate(data)
+    np.savetxt("data", datacsv, delimiter=",")
 
     data = [obs_data, interv_data_1, interv_data_2]
     interv = [[], [1], [2]]
@@ -34,10 +38,10 @@ class TestGies(unittest.TestCase):
             true_score = self.score.full_score(self.true_A)
             self.assertIsInstance(true_score, float)
             # Compute score of unconnected graph
-            score = self.score.full_score(np.zeros((self.p, self.p)))
-            self.assertIsInstance(score, float)
-            print("True DAG vs empty:", true_score, score)
-            self.assertGreater(true_score, score)
+            score_empty = self.score.full_score(np.zeros((self.p, self.p)))
+            self.assertIsInstance(score_empty, float)
+            print("True DAG vs empty:", true_score, score_empty)
+            self.assertGreater(true_score, score_empty)
 
     def test_score_decomposability_obs(self):
         # As a black-box test, make sure the score functions
@@ -85,4 +89,19 @@ class TestGies(unittest.TestCase):
                 self.assertAlmostEqual(score_dags[index-1], score_dags[index], places=2)
         print(score_dags)
 
+    def test_pcalg_score(self):
+        #/Library/Frameworks/R.framework/Versions/4.0/Resources/R
+        subprocess.call(['/Library/Frameworks/R.framework/Versions/4.0/Resources/R', '-f',
+                         "R_gies.R"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        with open('scores.csv') as f:
+            pcalg_score_empty_graph = float(f.readline())
+            pcalg_score_gies = float(f.readline())
+            pcalg_score_true = float(f.readline())
 
+        score_empty = self.score.full_score(np.zeros((self.p, self.p)))
+        A_gies_dag = ges.utils.pdag_to_dag(self.A_gies)
+        score_gies = self.score.full_score(A_gies_dag)
+        score_true = self.score.full_score(self.true_A)
+        self.assertAlmostEqual(pcalg_score_empty_graph, score_empty, places=2)
+        self.assertAlmostEqual(pcalg_score_gies, score_gies, places=2)
+        self.assertAlmostEqual(pcalg_score_true, score_true, places=2)
