@@ -83,7 +83,6 @@ class GaussIntL0Pen(DecomposableScore):
         self.lmbda = 0.5 * np.log(self.N) if lmbda is None else lmbda
         self.num_not_interv = np.zeros(self.p)
         self.part_sample_cov = np.zeros((self.p, self.p, self.p))
-        # self.method = method
 
         # Check that the interventions form a conservative family of targets
         for j in range(self.p):
@@ -97,16 +96,6 @@ class GaussIntL0Pen(DecomposableScore):
                     self.num_not_interv[k] += n
                     self.part_sample_cov[k] += self.sample_cov[i]*n
             self.part_sample_cov[k] = self.part_sample_cov[k]/self.num_not_interv[k]
-
-
-        # Precompute scatter matrices if necessary
-        #if method == 'scatter':
-        #    self._scatter = np.cov(data, rowvar=False, ddof=0)
-        #elif method == 'raw':
-        #    self._centered = data - np.mean(data, axis=0)
-        #else:
-        #    raise ValueError('Unrecognized method "%s"' % method)
-
 
     def full_score(self, A):
         """
@@ -131,7 +120,6 @@ class GaussIntL0Pen(DecomposableScore):
         likelihood = 0
         for j, sigma in enumerate(self.part_sample_cov):
             gamma = 1 / omegas[j]
-
             likelihood += self.num_not_interv[j] * (np.log(gamma) - gamma * (np.eye(self.p) - B)[:, j] @
                                                     sigma @ (np.eye(self.p) - B)[:, j].T)
         l0_term = self.lmbda * (np.sum(A != 0) + self.p)
@@ -232,29 +220,4 @@ class GaussIntL0Pen(DecomposableScore):
         S_pa_k = S_k[pa, :][:, k]
         b[pa] = _regress(k, pa, S_k)
         sigma = S_kk - b[pa] @ S_pa_k
-
-        # Compute the regression coefficients from a least squares
-        # regression on the raw data
-        #if self.method == 'raw':
-        #    Y = self._centered[:, j]
-        #     if len(parents) > 0:
-        #         X = np.atleast_2d(self._centered[:, parents])
-        #         # Perform regression
-        #         coef = np.linalg.lstsq(X, Y, rcond=None)[0]
-        #         b[parents] = coef
-        #         sigma = np.var(Y - X @ coef)
-        #     else:
-        #         sigma = np.var(Y, ddof=0)
-        # Or compute the regression coefficients from the
-        # empirical covariance (scatter) matrix
-        # i.e. b = Σ_{j,pa(j)} @ Σ_{pa(j), pa(j)}^-1
-        # elif self.method == 'scatter':
-        #     sigma = self._scatter[j, j]
-        #     if len(parents) > 0:
-        #         cov_parents = self._scatter[parents, :][:, parents]
-        #         cov_j = self._scatter[j, parents]
-        #         # Use solve instead of inverting the matrix
-        #         coef = np.linalg.solve(cov_parents, cov_j)
-        #         sigma = sigma - cov_j @ coef
-        #         b[parents] = coef
         return b, sigma
