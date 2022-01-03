@@ -606,16 +606,60 @@ def dag_to_cpdag(G):
     return cpdag
 
 
-def pdag_to_all_dags(P, indexes, tmp=[]):
+def pdag_to_all_dags(P):
+    """
+    Find all consistent extensions of the given PDAG using _pdag_to_all_dags. Return a ValueError
+    exception if the PDAG does not admit a consistent extension.
+
+    Parameters
+    ----------
+    P : np.array
+        adjacency matrix representing the PDAG connectivity, where
+        P[i,j] = 1 => i->j
+
+    Returns
+    -------
+    all_dags : list of np.array
+        the adjacency matrices of all DAGs which are consistent extensions
+        (i.e. same v-structures and skeleton) of P.
+
+    """
+    all_dags = _pdag_to_all_dags(P, list(range(len(P))), [])
+    return all_dags
+
+
+def _pdag_to_all_dags(P, indexes, tmp):
+    """
+    Find all consistent extensions of the given PDAG recursively. Return a ValueError
+    exception if the PDAG does not admit a consistent extension.
+
+    Parameters
+    ----------
+    P : np.array
+        adjacency matrix representing the PDAG connectivity, where
+        P[i,j] = 1 => i->j
+    indexes: list
+        list of indices for which the induced subgraph needs to be oriented
+    tmp: list of np.arrays
+        list of already found consistent extensions
+
+    Returns
+    -------
+    tmp : list of np.array
+        the adjacency matrices of some DAGs which are consistent extensions
+        (i.e. same v-structures and skeleton) of P.
+
+    """
+    # Check if there are any undirected edges in P
     if sum(sum(only_undirected(P))) > 0:
-        # Select a node which
-        #   1. has no outgoing edges in P (i.e. childless, is a sink)
-        #   2. all its neighbors are adjacent to all its adjacent nodes
         found = False
         i = 0
         P_temp = np.zeros_like(P)
+        # Consider only the subgraph which is induced by indexes
         P_temp[np.ix_(indexes, indexes)] = P[np.ix_(indexes, indexes)]
-
+        # Select a node which
+        #   1. has no outgoing edges in P (i.e. childless, is a sink)
+        #   2. all its neighbors are adjacent to all its adjacent nodes
         for i in indexes:
             P2 = P.copy()
             indexes2 = indexes.copy()
@@ -629,18 +673,19 @@ def pdag_to_all_dags(P, indexes, tmp=[]):
             # If found, orient all incident undirected edges and
             # remove i from the subgraph
             if found:
-                # Orient all incident undirected edges
+                # Orient all incident undirected edges inwards
                 for j in neighbors_i:
                     P2[i, j] = 0
-                indexes2.remove(i)  # to keep track of the real
-                # variable indices
-                tmp = pdag_to_all_dags(P2, indexes2, tmp)
+                indexes2.remove(i)
+                # keep adding directed edges recursively
+                # to the subgraph not including the node i
+                tmp = _pdag_to_all_dags(P2, indexes2, tmp)
         # A node which satisfies conditions 1,2 exists iff the
         # PDAG admits a consistent extension
         if not found:
-            #raise ValueError("PDAG does not admit consistent extension")
-            None
+            raise ValueError("PDAG does not admit consistent extension")
     else:
+        # add P to the list if it is not already in tmp
         tmp.append(P) if not any((P == x).all() for x in tmp) else None
     return tmp
 
