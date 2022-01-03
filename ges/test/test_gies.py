@@ -35,6 +35,7 @@ class TestGies(unittest.TestCase):
     score = GaussIntL0Pen(data, interv)
     A_gies, score_gies_change = ges.fit_bic(data, interv)
 
+
     def test_fullscore_true_vs_empty(self):
             print("Score of true vs empty graph")
             # Compute score of the true DAG
@@ -116,3 +117,12 @@ class TestGies(unittest.TestCase):
         print("PDAG gies vs pcalg", score_gies, pcalg_score_gies )
         self.assertAlmostEqual(pcalg_score_true, score_true, places=2)
         print("true graph gies vs pcalg", score_true, pcalg_score_true )
+
+    def test_pcalg_graph(self):
+        print("CPDAG returned by GIES vs PCALG")
+        # Running the R script and saving output
+        subprocess.call(['/Library/Frameworks/R.framework/Versions/4.0/Resources/R', '-f',
+                         "R_gies.R"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        A_pcalg = np.genfromtxt('A_gies.csv')
+        print("CPDAG gies vs pcalg", self.A_gies, A_pcalg)
+        self.assertTrue((self.A_gies == A_pcalg).all())
