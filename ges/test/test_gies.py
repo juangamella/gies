@@ -6,6 +6,7 @@ import sempler
 import ges
 from ges.scores.gauss_int_l0_pen import GaussIntL0Pen
 
+# TODO
 
 class TestGies(unittest.TestCase):
     true_A = np.array([[0, 0, 1, 0, 0],
@@ -80,8 +81,7 @@ class TestGies(unittest.TestCase):
 
     def test_fullscore_all_dags(self):
         cpdag_A = ges.utils.replace_unprotected(self.true_A)
-        indexes = list(range(len(cpdag_A)))
-        dags = ges.utils.pdag_to_all_dags(cpdag_A, indexes)
+        dags = ges.utils.pdag_to_all_dags(cpdag_A)
         score_dags = list(np.zeros(len(dags)))
         for index, dag in enumerate(dags):
             score_dags[index] = self.score.full_score(dag)
