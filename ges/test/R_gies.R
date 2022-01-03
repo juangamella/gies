@@ -25,3 +25,15 @@ score$pp.dat$scatter[[score$pp.dat$scatter.index[1]]]/score$pp.dat$data.count[1]
 
 scores <- c(score_empty_graph, score_gies, score_true)
 write.table(scores,'/Users/olga/PycharmProjects/gies2/ges/test/scores.csv',row.names=FALSE,col.names=FALSE)
+
+P <- matrix(0, ncol(data), ncol(data))
+for (k in 1:ncol(data))
+{
+  nodes = gies.fit$essgraph$.in.edges[[k]]
+    for (node in nodes)
+    {
+      P[node, k] <- 1
+    }
+}
+
+write.table(P, '/Users/olga/PycharmProjects/gies2/ges/test/A_gies.csv',row.names=FALSE,col.names=FALSE)
