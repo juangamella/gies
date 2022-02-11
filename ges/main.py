@@ -63,6 +63,84 @@ import numpy as np
 import ges.utils as utils
 from ges.scores.gauss_obs_l0_pen import GaussObsL0Pen
 from ges.scores.gauss_int_l0_pen import GaussIntL0Pen
+from ges.scores.exp_gauss_int_l0_pen import ExpGaussIntL0Pen
+
+
+def exp_fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], iterate=True, debug=0):
+    """Run GES on the given data, using the Gaussian BIC score
+    (l0-penalized Gaussian Likelihood). The data is not assumed to be
+    centered, i.e. an intercept is fitted.
+
+    To use a custom score, see ges.fit.
+
+    Parameters
+    ----------
+    data : list of numpy.ndarray
+        every matrix in the list corresponds to an environment,
+        the n x p matrix containing the observations, where columns
+        correspond to variables and rows to observations.
+    interv: a list of lists
+        a list of the interventions sets which
+        corresponds to the environments in data
+    A0 : numpy.ndarray, optional
+        The initial I-essential graph on which GIES will run, where where `A0[i,j]
+        != 0` implies the edge `i -> j` and `A[i,j] != 0 & A[j,i] !=
+        0` implies the edge `i - j`. Defaults to the empty graph
+        (i.e. matrix of zeros).
+    phases : [{'forward', 'backward', 'turning'}*], optional
+        Which phases of the GIES procedure are run, and in which
+        order. Defaults to `['forward', 'backward', 'turning']`.
+    iterate : bool, default=False
+        Indicates whether the given phases should be iterated more
+        than once.
+    debug : int, optional
+        If larger than 0, debug are traces printed. Higher values
+        correspond to increased verbosity.
+
+    Returns
+    -------
+    estimate : numpy.ndarray
+        The adjacency matrix of the estimated I-essential graph
+    total_score : float
+        The score of the estimate.
+
+    Raises
+    ------
+    TypeError:
+        If the type of some of the parameters was not expected,
+        e.g. if data is not a numpy array.
+    ValueError:
+        If the value of some of the parameters is not appropriate,
+        e.g. a wrong phase is specified.
+
+    Example
+    -------
+
+    Data from a linear-gaussian SCM (generated using
+    `sempler <https://github.com/juangamella/sempler>`__)
+
+    >>> import numpy as np
+    >>> data = [np.array([[3.23125779, 3.24950062, 13.430682, 24.67939513],
+    ...                  [1.90913354, -0.06843781, 6.93957057, 16.10164608],
+    ...                  [2.68547149, 1.88351553, 8.78711076, 17.18557716],
+    ...                  [0.16850822, 1.48067393, 5.35871419, 11.82895779],
+    ...                  [0.07355872, 1.06857039, 2.05006096, 3.07611922]])]
+    >>> interv = [[]]
+
+    Run GES using the gaussian BIC score:
+
+    >>> import ges
+    >>> ges.fit_bic(data, interv)
+    (array([[0, 1, 1, 0],
+           [0, 0, 0, 0],
+           [1, 1, 0, 1],
+           [0, 1, 1, 0]]), 15.674267611628233)
+    """
+    # Initialize Gaussian BIC score (precomputes scatter matrices, sets up cache)
+    cache = ExpGaussIntL0Pen(data, interv)
+    # Unless indicated otherwise, initialize to the empty graph
+    A0 = np.zeros((cache.p, cache.p)) if A0 is None else A0
+    return fit(cache, A0, phases, iterate, debug)
 
 
 def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], iterate=False, debug=0):
