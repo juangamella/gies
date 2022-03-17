@@ -278,7 +278,9 @@ def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate
             print("-------------------------") if debug else None
             while True:
                 score_change, new_A = fun(A, score_class, max(0, debug - 1))
-                if score_change > 0:
+                # TODO
+                # Was > 0, but might be stuck in loop for the turn operator
+                if score_change > 0.001:
                     # Transforming the partial I-essential graph into an I-essential graph
                     A = utils.replace_unprotected(new_A, score_class.interv)
                     total_score += score_change
@@ -439,7 +441,7 @@ def turning_step(A, cache, debug=0):
     else:
         scores = [op[0] for op in valid_operators]
         score, new_A, x, y, C = valid_operators[np.argmax(scores)]
-        print("  Best operator: turn(%d, %d, %s) -> (%0.4f)" % (x, y, C, score)) if debug else None
+        print("  Best operator: turn(%d, %d, %s) -> (%0.15f)" % (x, y, C, score)) if debug else None
         print(new_A) if debug else None
         return score, new_A
 
