@@ -6,7 +6,7 @@ from sempler.generators import dag_avg_deg
 import itertools
 from ges.scores.exp_gauss_int_l0_pen import ExpGaussIntL0Pen
 np.set_printoptions(suppress=True)
-k = 6
+k = 4
 num_tot = 100
 num_true = 0
 for m in range(num_tot):
