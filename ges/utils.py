@@ -606,6 +606,27 @@ def dag_to_cpdag(G):
     return cpdag
 
 
+def check_markov_equiv(G1, G2):
+    """
+    Checks if two DAGs are Markov equivalent
+
+    Parameters
+    ----------
+    G1 : np.array
+        The adjacency matrix of a DAG
+    G2: np.array
+        The adjacency matrix of a DAG
+
+    Returns
+    -------
+    True if the graphs are Markov equivalent, False otherwise
+
+    """
+    C1 = dag_to_cpdag(G1)
+    C2 = dag_to_cpdag(G2)
+    return np.all(C1 == C2)
+
+
 def pdag_to_all_dags(P):
     """
     Find all consistent extensions of the given PDAG using _pdag_to_all_dags. Return a ValueError
@@ -625,6 +646,8 @@ def pdag_to_all_dags(P):
 
     """
     all_dags = _pdag_to_all_dags(P, list(range(len(P))), [])
+    if not all_dags:
+        raise ValueError("PDAG does not admit consistent extension")
     return all_dags
 
 
@@ -682,8 +705,6 @@ def _pdag_to_all_dags(P, indexes, tmp):
                 tmp = _pdag_to_all_dags(P2, indexes2, tmp)
         # A node which satisfies conditions 1,2 exists iff the
         # PDAG admits a consistent extension
-        if not found:
-            raise ValueError("PDAG does not admit consistent extension")
     else:
         # add P to the list if it is not already in tmp
         tmp.append(P) if not any((P == x).all() for x in tmp) else None
@@ -1260,6 +1281,29 @@ def orient_edges(G, ordering):
         # Orient all undirected edges adjacent to i in the subgraph outwards
         G_new[ordering, i] = np.where(G_new[i, ordering] != 0, 0, G_new[ordering, i])
     return G_new
+
+
+def intervened_graph(G, I):
+    """
+    Computes the intervened DAG given an intervention
+
+    Parameters
+    ----------
+    G : np.array
+        The adjacency matrix of a DAG
+
+    I : list
+        List of the interventional targets
+
+    Returns
+    -------
+    G_I : The intervened graph
+
+    """
+    G_I = G.copy()
+    for i in I:
+        G_I[:, i] = 0
+    return G_I
 
 
 # To run the doctests
