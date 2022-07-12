@@ -78,7 +78,8 @@ class GaussIntL0Pen(DecomposableScore):
         super().__init__(data, interv, cache=cache, debug=debug)
         self.p = data[0].shape[1]
         self.n_obs = np.array([len(env) for env in data])
-        self.sample_cov = np.array([np.cov(env, rowvar=False, ddof=0) for env in data])
+        # self.sample_cov = np.array([np.cov(env, rowvar=False, ddof=0) for env in data])
+        self.sample_cov = np.array([1/self.n_obs[ind] * env.T @ env for (ind, env) in enumerate(data)])
         self.N = sum(self.n_obs)
         self.lmbda = 0.5 * np.log(self.N) if lmbda is None else lmbda
         self.num_not_interv = np.zeros(self.p)

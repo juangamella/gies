@@ -66,7 +66,7 @@ from ges.scores.gauss_int_l0_pen import GaussIntL0Pen
 from ges.scores.exp_gauss_int_l0_pen import ExpGaussIntL0Pen
 
 
-def exp_fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], iterate=True, debug=0):
+def exp_fit_bic(data, interv, mean=[], sigma=[], K=[], A0=None, phases=['forward', 'backward', 'turning'], iterate=True, debug=0):
     """Run GES on the given data, using the Gaussian BIC score
     (l0-penalized Gaussian Likelihood). The data is not assumed to be
     centered, i.e. an intercept is fitted.
@@ -137,13 +137,13 @@ def exp_fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning']
            [0, 1, 1, 0]]), 15.674267611628233)
     """
     # Initialize Gaussian BIC score (precomputes scatter matrices, sets up cache)
-    cache = ExpGaussIntL0Pen(data, interv)
+    cache = ExpGaussIntL0Pen(data, interv, mean, sigma, K)
     # Unless indicated otherwise, initialize to the empty graph
     A0 = np.zeros((cache.p, cache.p)) if A0 is None else A0
     return fit(cache, A0, phases, iterate, debug)
 
 
-def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], iterate=False, debug=0):
+def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], iterate=True, debug=0):
     """Run GES on the given data, using the Gaussian BIC score
     (l0-penalized Gaussian Likelihood). The data is not assumed to be
     centered, i.e. an intercept is fitted.
@@ -288,7 +288,7 @@ def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate
                     break
             print("-----------------------") if debug else None
             print("GES %s phase end" % phase) if debug else None
-            print("Total score: %0.4f" % total_score) if debug else None
+            print("Total score: %0.10f" % total_score) if debug else None
             [print(row) for row in A] if debug else None
         if total_score <= last_total_score or not iterate:
             break
@@ -339,7 +339,7 @@ def forward_step(A, cache, debug=0):
         score, x, y, T = valid_operators[np.argmax(scores)]
         # Apply operator
         new_A = insert(x, y, T, A, cache.interv)
-        print("  Best operator: insert(%d, %d, %s) -> (%0.4f)" %
+        print("  Best operator: insert(%d, %d, %s) -> (%0.10f)" %
               (x, y, T, score)) if debug else None
         print(new_A) if debug else None
         return score, new_A
