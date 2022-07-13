@@ -45,25 +45,25 @@ Further credit is given where due.
 
 Additional modules / packages:
 
-  - ges.utils contains auxiliary functions and the logic to transform
+  - gies.utils contains auxiliary functions and the logic to transform
     a PDAG into a CPDAG, used after each application of an operator.
-  - ges.scores contains the modules with the score classes:
-      - ges.scores.decomposable_score contains the base class for
+  - gies.scores contains the modules with the score classes:
+      - gies.scores.decomposable_score contains the base class for
         decomposable score classes (see that module for more details).
-      - ges.scores.gauss_obs_l0_pen contains a cached implementation
+      - gies.scores.gauss_obs_l0_pen contains a cached implementation
         of the gaussian likelihood BIC score used in the original GES
         paper.
-   - ges.test contains the modules with the unit tests and tests
+   - gies.test contains the modules with the unit tests and tests
      comparing against the algorithm's implementation in the R package
      'pcalg'.
 
 """
 
 import numpy as np
-import ges.utils as utils
-from ges.scores.gauss_obs_l0_pen import GaussObsL0Pen
-from ges.scores.gauss_int_l0_pen import GaussIntL0Pen
-from ges.scores.exp_gauss_int_l0_pen import ExpGaussIntL0Pen
+import gies.utils as utils
+from gies.scores.gauss_obs_l0_pen import GaussObsL0Pen
+from gies.scores.gauss_int_l0_pen import GaussIntL0Pen
+from gies.scores.exp_gauss_int_l0_pen import ExpGaussIntL0Pen
 
 
 def exp_fit_bic(data, interv, mean=[], sigma=[], K=[], A0=None, phases=['forward', 'backward', 'turning'], iterate=True, debug=0):
@@ -71,7 +71,7 @@ def exp_fit_bic(data, interv, mean=[], sigma=[], K=[], A0=None, phases=['forward
     (l0-penalized Gaussian Likelihood). The data is not assumed to be
     centered, i.e. an intercept is fitted.
 
-    To use a custom score, see ges.fit.
+    To use a custom score, see gies.fit.
 
     Parameters
     ----------
@@ -130,7 +130,7 @@ def exp_fit_bic(data, interv, mean=[], sigma=[], K=[], A0=None, phases=['forward
     Run GES using the gaussian BIC score:
 
     >>> import ges
-    >>> ges.fit_bic(data, interv)
+    >>> gies.fit_bic(data, interv)
     (array([[0, 1, 1, 0],
            [0, 0, 0, 0],
            [1, 1, 0, 1],
@@ -148,7 +148,7 @@ def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], it
     (l0-penalized Gaussian Likelihood). The data is not assumed to be
     centered, i.e. an intercept is fitted.
 
-    To use a custom score, see ges.fit.
+    To use a custom score, see gies.fit.
 
     Parameters
     ----------
@@ -207,7 +207,7 @@ def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], it
     Run GES using the gaussian BIC score:
 
     >>> import ges
-    >>> ges.fit_bic(data, interv)
+    >>> gies.fit_bic(data, interv)
     (array([[0, 1, 1, 0],
            [0, 0, 0, 0],
            [1, 1, 0, 1],
@@ -226,11 +226,11 @@ def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate
 
     Parameters
     ----------
-    score_class : ges.DecomposableScore
+    score_class : gies.DecomposableScore
         an instance of a class which inherits from
-        ges.decomposable_score.DecomposableScore (or defines a
+        gies.decomposable_score.DecomposableScore (or defines a
         local_score function and a p attribute, see
-        ges.decomposable_score for more info).
+        gies.decomposable_score for more info).
 
     A0 : np.array, optional
         the initial I-essential graph on which GIES will run, where where A0[i,j]
@@ -526,7 +526,7 @@ def score_valid_insert_operators(x, y, A, cache, debug=0):
         the target node
     A : np.array
         the current adjacency matrix
-    cache : instance of ges.scores.DecomposableScore
+    cache : instance of gies.scores.DecomposableScore
         the score cache to compute the score of the
         operators that are valid
     debug : int
@@ -689,7 +689,7 @@ def score_valid_delete_operators(x, y, A, cache, debug=0):
         the "target" node
     A : np.array
         the current adjacency matrix
-    cache : instance of ges.scores.DecomposableScore
+    cache : instance of gies.scores.DecomposableScore
         the score cache to compute the score of the
         operators that are valid
     debug : int
@@ -846,7 +846,7 @@ def score_valid_turn_operators(x, y, A, cache, debug=0):
         the target node
     A : np.array
         the current adjacency matrix
-    cache : instance of ges.scores.DecomposableScore
+    cache : instance of gies.scores.DecomposableScore
         the score cache to compute the score of the
         operators that are valid
     debug : int
@@ -884,7 +884,7 @@ def score_valid_turn_operators_dir(x, y, A, cache, debug=0):
         the target node
     A : np.array
         the current adjacency matrix
-    cache : instance of ges.scores.DecomposableScore
+    cache : instance of gies.scores.DecomposableScore
         the score cache to compute the score of the
         operators that are valid
     debug : bool or string
@@ -979,7 +979,7 @@ def score_valid_turn_operators_undir(x, y, A, cache, debug=0):
         the target node
     A : np.array
         the current adjacency matrix
-    cache : instance of ges.scores.DecomposableScore
+    cache : instance of gies.scores.DecomposableScore
         the score cache to compute the score of the
         operators that are valid
     debug : bool or string
