@@ -32,6 +32,8 @@
 """
 
 import numpy as np
+
+import ges.utils
 from .decomposable_score import DecomposableScore
 from .experimental import _regress
 
@@ -40,13 +42,13 @@ from .experimental import _regress
 # (observational) environment
 
 
-class GaussIntL0Pen(DecomposableScore):
+class ExpGaussIntL0Pen(DecomposableScore):
     """
     Implements a cached l0-penalized gaussian likelihood score for the GIES setting.
 
     """
 
-    def __init__(self, data, interv, lmbda=None, method='scatter', cache=True, debug=0):
+    def __init__(self, data, interv, mean=[], sigma=[], K=[], lmbda=None, method='scatter', cache=True, debug=0):
         """Creates a new instance of the class.
 
         Parameters
@@ -77,19 +79,25 @@ class GaussIntL0Pen(DecomposableScore):
         """
         super().__init__(data, interv, cache=cache, debug=debug)
         self.p = data[0].shape[1]
-        self.n_obs = np.array([len(env) for env in data])
+        self.n_obs = np.array([len(env) for env in data]) 
+        self.total_num_interv = sum(len(inter) for inter in interv)
         # self.sample_cov = np.array([np.cov(env, rowvar=False, ddof=0) for env in data])
         self.sample_cov = np.array([1/self.n_obs[ind] * env.T @ env for (ind, env) in enumerate(data)])
         self.N = sum(self.n_obs)
+        # self.lmbda = 0
         self.lmbda = 0.5 * np.log(self.N) if lmbda is None else lmbda
+        # self.lmbda = 0.5 * np.log(self.N)*(self.total_num_interv) if lmbda is None else lmbda
         self.num_not_interv = np.zeros(self.p)
         self.part_sample_cov = np.zeros((self.p, self.p, self.p))
-
-        # Check that the interventions form a conservative family of targets
-        for j in range(self.p):
-            if sum(i.count(j) for i in self.interv) == len(data):
-                raise ValueError("The family of targets is not conservative")
-
+        self.C = 0
+        self.sigma = sigma
+        if mean:
+            for i in range(len(self.interv)):
+                for k in self.interv[i]:
+                    self.C += 0.5 * self.n_obs[i]*(np.log(K[i][k, k]) - self.sample_cov[i][k, k]*K[i][k, k])
+                mask = np.zeros_like(sigma[i])
+                mask[np.ix_(interv[i], interv[i])] = 1
+                self.C += 0.5*self.n_obs[i]*mask @ mean[i] @ K[i] @ mean[i]
         # Computing the numbers of non-interventions of a variable and the corresponding partial covariance matrix
         for k in range(self.p):
             for (i, n) in enumerate(self.n_obs):
@@ -121,10 +129,9 @@ class GaussIntL0Pen(DecomposableScore):
         likelihood = 0
         for j, sigma in enumerate(self.part_sample_cov):
             gamma = 1 / omegas[j]
-            likelihood += self.num_not_interv[j] * (np.log(gamma) - gamma * (np.eye(self.p) - B)[:, j] @
-                                                    sigma @ (np.eye(self.p) - B)[:, j].T)
+            likelihood += -self.num_not_interv[j]*(1+np.log(omegas[j]))
         l0_term = self.lmbda * (np.sum(A != 0) + self.p)
-        score = 0.5*likelihood - l0_term
+        score = 0.5*likelihood - l0_term + self.C
         return score
 
     # Note: self.local_score(...), with cache logic, already defined
@@ -192,7 +199,6 @@ class GaussIntL0Pen(DecomposableScore):
             parents = np.where(A[:, j] != 0)[0]
             B[:, j], omegas[j] = self._mle_local(j, parents)
         return B, omegas
-
 
     def _mle_local(self, k, pa):
         """Finds the maximum likelihood estimate of the local model

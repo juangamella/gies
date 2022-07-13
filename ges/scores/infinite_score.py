@@ -1,94 +1,28 @@
-# Copyright 2021 Juan L Gamella
-
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-
-# 1. Redistributions of source code must retain the above copyright
-# notice, this list of conditions and the following disclaimer.
-
-# 2. Redistributions in binary form must reproduce the above copyright
-# notice, this list of conditions and the following disclaimer in the
-# documentation and/or other materials provided with the distribution.
-
-# 3. Neither the name of the copyright holder nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
-
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-
-"""
-"""
-
 import numpy as np
 from .decomposable_score import DecomposableScore
 from .experimental import _regress
 
-# --------------------------------------------------------------------
-# l0-penalized Gaussian log-likelihood score for a sample from a single
-# (observational) environment
 
-
-class GaussIntL0Pen(DecomposableScore):
-    """
-    Implements a cached l0-penalized gaussian likelihood score for the GIES setting.
-
-    """
-
-    def __init__(self, data, interv, lmbda=None, method='scatter', cache=True, debug=0):
-        """Creates a new instance of the class.
-
-        Parameters
-        ----------
-        data : list of numpy.ndarray
-            every matrix in the list corresponds to an environment,
-            the nxp matrix containing the observations of each
-            variable (each column corresponds to a variable).
-        interv: a list of lists
-            a list of the interventions sets which
-            corresponds to the environments in data
-        lmbda : float or NoneType, optional
-            the regularization parameter. If None, defaults to the BIC
-            score, i.e. lmbda = 1/2 * log(n), where n is the number of
-            observations.
-        method : {'scatter', 'raw'}, optional
-            the method used to compute the likelihood. If 'scatter',
-            the empirical covariance matrix (i.e. scatter matrix) is
-            used. If 'raw', the likelihood is computed from the raw
-            data. In both cases an intercept is fitted.
-        cache : bool, optional
-           if computations of the local score should be cached for
-           future calls. Defaults to True.
-        debug : int, optional
-            if larger than 0, debug are traces printed. Higher values
-            correspond to increased verbosity.
-
-        """
-        super().__init__(data, interv, cache=cache, debug=debug)
-        self.p = data[0].shape[1]
-        self.n_obs = np.array([len(env) for env in data])
-        # self.sample_cov = np.array([np.cov(env, rowvar=False, ddof=0) for env in data])
-        self.sample_cov = np.array([1/self.n_obs[ind] * env.T @ env for (ind, env) in enumerate(data)])
+class InfiniteScore(DecomposableScore):
+    def __init__(self, cov, interv, mean=[], sigma=[], K=[], lmbda=None, method='scatter', cache=True, debug=0):
+        super().__init__(cov, interv, cache=cache, debug=debug)
+        self.p = cov[0].shape[1]
+        self.n_obs = np.ones(len(interv))
+        self.total_num_interv = sum(len(inter) for inter in interv)
+        self.sample_cov = cov
         self.N = sum(self.n_obs)
-        self.lmbda = 0.5 * np.log(self.N) if lmbda is None else lmbda
+        self.lmbda = 0
         self.num_not_interv = np.zeros(self.p)
         self.part_sample_cov = np.zeros((self.p, self.p, self.p))
+        self.C = 0
+        if mean:
+            for i in range(len(self.interv)):
+                for k in self.interv[i]:
+                    self.C += 0.5 * (np.log(K[i][k, k]) - self.sample_cov[i][k, k]*K[i][k, k])
+                mask = np.zeros_like(sigma[i])
+                mask[np.ix_(interv[i], interv[i])] = 1
+                self.C += 0.5*mask @ mean[i] @ K[i] @ mean[i]
 
-        # Check that the interventions form a conservative family of targets
-        for j in range(self.p):
-            if sum(i.count(j) for i in self.interv) == len(data):
-                raise ValueError("The family of targets is not conservative")
 
         # Computing the numbers of non-interventions of a variable and the corresponding partial covariance matrix
         for k in range(self.p):
@@ -120,11 +54,9 @@ class GaussIntL0Pen(DecomposableScore):
         B, omegas = self._mle_full(A)
         likelihood = 0
         for j, sigma in enumerate(self.part_sample_cov):
-            gamma = 1 / omegas[j]
-            likelihood += self.num_not_interv[j] * (np.log(gamma) - gamma * (np.eye(self.p) - B)[:, j] @
-                                                    sigma @ (np.eye(self.p) - B)[:, j].T)
+            likelihood += -self.num_not_interv[j]*(1+np.log(omegas[j]))
         l0_term = self.lmbda * (np.sum(A != 0) + self.p)
-        score = 0.5*likelihood - l0_term
+        score = 0.5*likelihood - l0_term + self.C
         return score
 
     # Note: self.local_score(...), with cache logic, already defined
@@ -192,7 +124,6 @@ class GaussIntL0Pen(DecomposableScore):
             parents = np.where(A[:, j] != 0)[0]
             B[:, j], omegas[j] = self._mle_local(j, parents)
         return B, omegas
-
 
     def _mle_local(self, k, pa):
         """Finds the maximum likelihood estimate of the local model

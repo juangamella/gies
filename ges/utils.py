@@ -33,6 +33,7 @@ Module containing the auxiliary functions used in the
 implementation of GES, including the PDAG to CPDAG conversion
 algorithm described in Chickering's original GES paper from 2002.
 """
+import copy
 
 import numpy as np
 import itertools
@@ -398,6 +399,40 @@ def vstructures(A):
     return set(vstructs)
 
 
+def unshielded_triples(A):
+    """
+    Return all unshielded triples of a DAG or PDAG, given its adjacency matrix.
+
+    Parameters
+    ----------
+    A : np.array
+        The adjacency of the (P)DAG, where A[i,j] != 0 => i->j
+
+    Returns
+    -------
+    unshielded_triples : set()
+        the set of v-structures, where every v-structure is a three
+        element tuple, e.g. (i,j,k) represents the v-structure
+        i -> j <- k, where i < j for consistency.
+
+    """
+    # Construct the skeleton of the graph
+    skeleton_A = skeleton(A)
+    # Search for colliders in the graph with only directed edges
+    triples = np.where((skeleton_A != 0).sum(axis=0) > 1)[0]
+    # For each triple, and all pairs of neighbors, check if the
+    # parents are adjacent in A
+    unshielded_triples = []
+    for c in triples:
+        for (i, j) in itertools.combinations(neighbors(c, skeleton_A), 2):
+            if A[i, j] == 0 and A[j, i] == 0:
+                # Ordering might be defensive here, as
+                # itertools.combinations already returns ordered
+                # tuples; motivation is to not depend on their feature
+                unshielded_triple = (i, c, j) if i < j else (j, c, i)
+                unshielded_triples.append(unshielded_triple)
+    return set(unshielded_triples)
+
 def only_directed(P):
     """
     Return the graph with the same nodes as P and only its directed edges.
@@ -606,6 +641,51 @@ def dag_to_cpdag(G):
     return cpdag
 
 
+def check_markov_equiv(G1, G2):
+    """
+    Checks if two DAGs are Markov equivalent
+
+    Parameters
+    ----------
+    G1 : np.array
+        The adjacency matrix of a DAG
+    G2: np.array
+        The adjacency matrix of a DAG
+
+    Returns
+    -------
+    True if the graphs are Markov equivalent, False otherwise
+
+    """
+    C1 = dag_to_cpdag(G1)
+    C2 = dag_to_cpdag(G2)
+    return np.all(C1 == C2)
+
+
+def check_o_equiv(G1, I1, G2, I2):
+    """
+    Checks if two DAGs are Markov equivalent
+
+    Parameters
+    ----------
+    G1 : np.array
+        The adjacency matrix of a DAG
+    G2: np.array
+        The adjacency matrix of a DAG
+
+    Returns
+    -------
+    True if the graphs are Markov equivalent, False otherwise
+
+    """
+    for interv in range(len(I1)):
+        G1_interv = intervened_graph(G1, I1[interv])
+        G2_interv = intervened_graph(G2, I2[interv])
+        if not check_markov_equiv(G1_interv, G2_interv):
+            return False
+    return True
+
+
 def pdag_to_all_dags(P):
     """
     Find all consistent extensions of the given PDAG using _pdag_to_all_dags. Return a ValueError
@@ -625,6 +705,8 @@ def pdag_to_all_dags(P):
 
     """
     all_dags = _pdag_to_all_dags(P, list(range(len(P))), [])
+    if not all_dags:
+        raise ValueError("PDAG does not admit consistent extension")
     return all_dags
 
 
@@ -682,8 +764,6 @@ def _pdag_to_all_dags(P, indexes, tmp):
                 tmp = _pdag_to_all_dags(P2, indexes2, tmp)
         # A node which satisfies conditions 1,2 exists iff the
         # PDAG admits a consistent extension
-        if not found:
-            raise ValueError("PDAG does not admit consistent extension")
     else:
         # add P to the list if it is not already in tmp
         tmp.append(P) if not any((P == x).all() for x in tmp) else None
@@ -1148,7 +1228,7 @@ def strongly_protected(a, b, G, I=[[]]):
         # Check configuration (d)
         for c2 in b_in:
             # Check that c1 - a and c2 - a
-            if c1 != c2 and undirG[a, c1] == 1 and undirG[a, c2] == 1:
+            if c1 != c2 and undirG[a, c1] == 1 and undirG[a, c2] == 1 and undirG[c1, c2] == 0:
                 return True
     return False
 
@@ -1260,6 +1340,40 @@ def orient_edges(G, ordering):
         # Orient all undirected edges adjacent to i in the subgraph outwards
         G_new[ordering, i] = np.where(G_new[i, ordering] != 0, 0, G_new[ordering, i])
     return G_new
+
+
+def intervened_graph(G, I):
+    """
+    Computes the intervened DAG given an intervention
+
+    Parameters
+    ----------
+    G : np.array
+        The adjacency matrix of a DAG
+
+    I : list
+        List of the interventional targets
+
+    Returns
+    -------
+    G_I : The intervened graph
+
+    """
+    G_I = G.copy()
+    for i in I:
+        G_I[:, i] = 0
+    return G_I
+
+
+def base_targets(G, I):
+    I_base = []
+    for interv in I:
+        base_list = copy.deepcopy(interv)
+        for k in interv:
+            if not pa(k, G):
+                base_list.remove(k)
+        I_base.append(base_list)
+    return I_base
 
 
 # To run the doctests

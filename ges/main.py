@@ -63,9 +63,87 @@ import numpy as np
 import ges.utils as utils
 from ges.scores.gauss_obs_l0_pen import GaussObsL0Pen
 from ges.scores.gauss_int_l0_pen import GaussIntL0Pen
+from ges.scores.exp_gauss_int_l0_pen import ExpGaussIntL0Pen
 
 
-def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], iterate=False, debug=0):
+def exp_fit_bic(data, interv, mean=[], sigma=[], K=[], A0=None, phases=['forward', 'backward', 'turning'], iterate=True, debug=0):
+    """Run GES on the given data, using the Gaussian BIC score
+    (l0-penalized Gaussian Likelihood). The data is not assumed to be
+    centered, i.e. an intercept is fitted.
+
+    To use a custom score, see ges.fit.
+
+    Parameters
+    ----------
+    data : list of numpy.ndarray
+        every matrix in the list corresponds to an environment,
+        the n x p matrix containing the observations, where columns
+        correspond to variables and rows to observations.
+    interv: a list of lists
+        a list of the interventions sets which
+        corresponds to the environments in data
+    A0 : numpy.ndarray, optional
+        The initial I-essential graph on which GIES will run, where where `A0[i,j]
+        != 0` implies the edge `i -> j` and `A[i,j] != 0 & A[j,i] !=
+        0` implies the edge `i - j`. Defaults to the empty graph
+        (i.e. matrix of zeros).
+    phases : [{'forward', 'backward', 'turning'}*], optional
+        Which phases of the GIES procedure are run, and in which
+        order. Defaults to `['forward', 'backward', 'turning']`.
+    iterate : bool, default=False
+        Indicates whether the given phases should be iterated more
+        than once.
+    debug : int, optional
+        If larger than 0, debug are traces printed. Higher values
+        correspond to increased verbosity.
+
+    Returns
+    -------
+    estimate : numpy.ndarray
+        The adjacency matrix of the estimated I-essential graph
+    total_score : float
+        The score of the estimate.
+
+    Raises
+    ------
+    TypeError:
+        If the type of some of the parameters was not expected,
+        e.g. if data is not a numpy array.
+    ValueError:
+        If the value of some of the parameters is not appropriate,
+        e.g. a wrong phase is specified.
+
+    Example
+    -------
+
+    Data from a linear-gaussian SCM (generated using
+    `sempler <https://github.com/juangamella/sempler>`__)
+
+    >>> import numpy as np
+    >>> data = [np.array([[3.23125779, 3.24950062, 13.430682, 24.67939513],
+    ...                  [1.90913354, -0.06843781, 6.93957057, 16.10164608],
+    ...                  [2.68547149, 1.88351553, 8.78711076, 17.18557716],
+    ...                  [0.16850822, 1.48067393, 5.35871419, 11.82895779],
+    ...                  [0.07355872, 1.06857039, 2.05006096, 3.07611922]])]
+    >>> interv = [[]]
+
+    Run GES using the gaussian BIC score:
+
+    >>> import ges
+    >>> ges.fit_bic(data, interv)
+    (array([[0, 1, 1, 0],
+           [0, 0, 0, 0],
+           [1, 1, 0, 1],
+           [0, 1, 1, 0]]), 15.674267611628233)
+    """
+    # Initialize Gaussian BIC score (precomputes scatter matrices, sets up cache)
+    cache = ExpGaussIntL0Pen(data, interv, mean, sigma, K)
+    # Unless indicated otherwise, initialize to the empty graph
+    A0 = np.zeros((cache.p, cache.p)) if A0 is None else A0
+    return fit(cache, A0, phases, iterate, debug)
+
+
+def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], iterate=True, debug=0):
     """Run GES on the given data, using the Gaussian BIC score
     (l0-penalized Gaussian Likelihood). The data is not assumed to be
     centered, i.e. an intercept is fitted.
@@ -200,7 +278,9 @@ def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate
             print("-------------------------") if debug else None
             while True:
                 score_change, new_A = fun(A, score_class, max(0, debug - 1))
-                if score_change > 0:
+                # TODO
+                # Was > 0, but might be stuck in loop for the turn operator
+                if score_change > 0.001:
                     # Transforming the partial I-essential graph into an I-essential graph
                     A = utils.replace_unprotected(new_A, score_class.interv)
                     total_score += score_change
@@ -208,7 +288,7 @@ def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate
                     break
             print("-----------------------") if debug else None
             print("GES %s phase end" % phase) if debug else None
-            print("Total score: %0.4f" % total_score) if debug else None
+            print("Total score: %0.10f" % total_score) if debug else None
             [print(row) for row in A] if debug else None
         if total_score <= last_total_score or not iterate:
             break
@@ -256,8 +336,10 @@ def forward_step(A, cache, debug=0):
         return 0, A
     else:
         scores = [op[0] for op in valid_operators]
-        score, new_A, x, y, T = valid_operators[np.argmax(scores)]
-        print("  Best operator: insert(%d, %d, %s) -> (%0.4f)" %
+        score, x, y, T = valid_operators[np.argmax(scores)]
+        # Apply operator
+        new_A = insert(x, y, T, A, cache.interv)
+        print("  Best operator: insert(%d, %d, %s) -> (%0.10f)" %
               (x, y, T, score)) if debug else None
         print(new_A) if debug else None
         return score, new_A
@@ -310,7 +392,9 @@ def backward_step(A, cache, debug=0):
         return 0, A
     else:
         scores = [op[0] for op in valid_operators]
-        score, new_A, x, y, H = valid_operators[np.argmax(scores)]
+        score, x, y, H = valid_operators[np.argmax(scores)]
+        # Apply operator
+        new_A = delete(x, y, H, A, cache.interv)
         print("  Best operator: delete(%d, %d, %s) -> (%0.4f)" %
               (x, y, H, score)) if debug else None
         print(new_A) if debug else None
@@ -360,8 +444,10 @@ def turning_step(A, cache, debug=0):
         return 0, A
     else:
         scores = [op[0] for op in valid_operators]
-        score, new_A, x, y, C = valid_operators[np.argmax(scores)]
-        print("  Best operator: turn(%d, %d, %s) -> (%0.4f)" % (x, y, C, score)) if debug else None
+        score, x, y, C = valid_operators[np.argmax(scores)]
+        # Apply operator
+        new_A = turn(x, y, C, A, cache.interv)
+        print("  Best operator: turn(%d, %d, %s) -> (%0.15f)" % (x, y, C, score)) if debug else None
         print(new_A) if debug else None
         return score, new_A
 
@@ -503,8 +589,6 @@ def score_valid_insert_operators(x, y, A, cache, debug=0):
               na_yxT, "validity:", cond_1, cond_2) if debug > 1 else None
         # If both conditions hold, apply operator and compute its score
         if cond_1 and cond_2:
-            # Apply operator
-            new_A = insert(x, y, T, A, cache.interv)
             # Compute the change in score
             aux = na_yxT | utils.pa(y, A)
             old_score = cache.local_score(y, aux)
@@ -512,7 +596,7 @@ def score_valid_insert_operators(x, y, A, cache, debug=0):
             print("        new: s(%d, %s) = %0.6f old: s(%d, %s) = %0.6f" %
                   (y, aux | {x}, new_score, y, aux, old_score)) if debug > 1 else None
             # Add to the list of valid operators
-            valid_operators.append((new_score - old_score, new_A, x, y, T))
+            valid_operators.append((new_score - old_score, x, y, T))
             print("    insert(%d,%d,%s) -> %0.16f" %
                   (x, y, T, new_score - old_score)) if debug else None
     # Return all the valid operators
@@ -654,8 +738,6 @@ def score_valid_delete_operators(x, y, A, cache, debug=0):
         print("      delete(%d,%d,%s)" % (x, y, H), "na_yx - H = ",
               na_yx - set(H), "validity:", cond_1) if debug > 1 else None
         if cond_1:
-            # Apply operator
-            new_A = delete(x, y, H, A, cache.interv)
             # Compute the change in score
             aux = (na_yx - set(H)) | utils.pa(y, A) | {x}
             # print(x,y,H,"na_yx:",na_yx,"old:",aux,"new:", aux - {x})
@@ -664,7 +746,7 @@ def score_valid_delete_operators(x, y, A, cache, debug=0):
             print("        new: s(%d, %s) = %0.6f old: s(%d, %s) = %0.6f" %
                   (y, aux - {x}, new_score, y, aux, old_score)) if debug > 1 else None
             # Add to the list of valid operators
-            valid_operators.append((new_score - old_score, new_A, x, y, H))
+            valid_operators.append((new_score - old_score, x, y, H))
             print("    delete(%d,%d,%s) -> %0.16f" %
                   (x, y, H, new_score - old_score)) if debug else None
     # Return all the valid operators
@@ -870,8 +952,6 @@ def score_valid_turn_operators_dir(x, y, A, cache, debug=0):
         print("      turn(%d,%d,%s)" % (x, y, C), "na_yx =", utils.na(y, x, A),
               "T =", T, "validity:", cond_1, cond_2) if debug > 1 else None
         if cond_1 and cond_2:
-            # Apply operator
-            new_A = turn(x, y, C, A, cache.interv)
             # Compute the change in score
             new_score = cache.local_score(y, utils.pa(
                 y, A) | C | {x}) + cache.local_score(x, utils.pa(x, A) - {y})
@@ -880,7 +960,7 @@ def score_valid_turn_operators_dir(x, y, A, cache, debug=0):
             print("        new score = %0.6f, old score = %0.6f, y=%d, C=%s" %
                   (new_score, old_score, y, C)) if debug > 1 else None
             # Add to the list of valid operators
-            valid_operators.append((new_score - old_score, new_A, x, y, C))
+            valid_operators.append((new_score - old_score, x, y, C))
             print("    turn(%d,%d,%s) -> %0.16f" %
                   (x, y, C, new_score - old_score)) if debug else None
     # Return all the valid operators
@@ -968,8 +1048,6 @@ def score_valid_turn_operators_undir(x, y, A, cache, debug=0):
         if not utils.separates({x, y}, C, na_yx - C, subgraph):
             continue
         # At this point C passes both conditions
-        #   Apply operator
-        new_A = turn(x, y, C, A, cache.interv)
         #   Compute the change in score
         new_score = cache.local_score(y, utils.pa(
             y, A) | C | {x}) + cache.local_score(x, utils.pa(x, A) | (C & na_yx))
@@ -978,7 +1056,7 @@ def score_valid_turn_operators_undir(x, y, A, cache, debug=0):
         print("        new score = %0.6f, old score = %0.6f, y=%d, C=%s" %
               (new_score, old_score, y, C)) if debug > 1 else None
         #   Add to the list of valid operators
-        valid_operators.append((new_score - old_score, new_A, x, y, C))
+        valid_operators.append((new_score - old_score, x, y, C))
         print("    turn(%d,%d,%s) -> %0.16f" % (x, y, C, new_score - old_score)) if debug else None
     # Return all valid operators
     return valid_operators
