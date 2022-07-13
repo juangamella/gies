@@ -2,8 +2,8 @@ import subprocess
 import unittest
 import numpy as np
 import sempler
-import ges
-from ges.scores.gauss_int_l0_pen import GaussIntL0Pen
+import gies
+from gies.scores.gauss_int_l0_pen import GaussIntL0Pen
 
 
 # Test for the gauss_int_l0_pen
@@ -33,7 +33,7 @@ class TestGies(unittest.TestCase):
     np.savetxt("data", datacsv, delimiter=",")
 
     score = GaussIntL0Pen(data, interv)
-    A_gies, score_gies_change = ges.fit_bic(data, interv)
+    A_gies, score_gies_change = gies.fit_bic(data, interv)
 
 
     def test_fullscore_true_vs_empty(self):
@@ -65,7 +65,7 @@ class TestGies(unittest.TestCase):
     def test_gies_pdag_vs_gies_score_changes(self):
         print("The fullscore of the GIES PDAG vs the score changes returned by GIES + empty graph score")
         # Compute a consistent extension of the PDAG and its score
-        A_gies_dag = ges.utils.pdag_to_dag(self.A_gies)
+        A_gies_dag = gies.utils.pdag_to_dag(self.A_gies)
         score_full_gies = self.score.full_score(A_gies_dag)
         self.assertIsInstance(score_full_gies, float)
         # Compute score of the empty graph + score changes from GIES
@@ -77,7 +77,7 @@ class TestGies(unittest.TestCase):
     def test_fullscore_gies_vs_true_score(self):
         print("The fullscore of the GIES PDAG vs the true score")
         # Compute a consistent extension of the PDAG and its score
-        A_gies_dag = ges.utils.pdag_to_dag(self.A_gies)
+        A_gies_dag = gies.utils.pdag_to_dag(self.A_gies)
         score_full_gies = self.score.full_score(A_gies_dag)
         self.assertIsInstance(score_full_gies, float)
         # Compute score of the true DAG
@@ -88,8 +88,8 @@ class TestGies(unittest.TestCase):
 
     def test_fullscore_all_dags(self):
         print("Scores of all consistent extensions of the PDAG returned by GIES")
-        cpdag_A = ges.utils.replace_unprotected(self.true_A)
-        dags = ges.utils.pdag_to_all_dags(cpdag_A)
+        cpdag_A = gies.utils.replace_unprotected(self.true_A)
+        dags = gies.utils.pdag_to_all_dags(cpdag_A)
         score_dags = list(np.zeros(len(dags)))
         for index, dag in enumerate(dags):
             score_dags[index] = self.score.full_score(dag)
@@ -108,7 +108,7 @@ class TestGies(unittest.TestCase):
             pcalg_score_true = float(f.readline())
         # Computing empty, PDAG and true DAG scores
         score_empty = self.score.full_score(np.zeros((self.p, self.p)))
-        A_gies_dag = ges.utils.pdag_to_dag(self.A_gies)
+        A_gies_dag = gies.utils.pdag_to_dag(self.A_gies)
         score_gies = self.score.full_score(A_gies_dag)
         score_true = self.score.full_score(self.true_A)
         self.assertAlmostEqual(pcalg_score_empty_graph, score_empty, places=2)
