@@ -5,7 +5,7 @@ setuptools.setup(
     version='1.0.4',
     author='Juan L Gamella',
     author_email='juangamella@gmail.com',
-    packages=['ges', 'ges.test', 'ges.scores'],
+    packages=['gies', 'gies.test', 'gies.scores'],
     scripts=[],
     url='https://github.com/juangamella/ges',
     license='BSD 3-Clause License',
