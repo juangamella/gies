@@ -53,9 +53,9 @@ def backward(data, I_old, ind_I, mean, sigma, K):
     return I_max, S_max, max_dag_back
 
 
-num_tot = 1000
-num_interv_targets = 2
-for p in range(3, 10):
+num_tot = 100
+num_interv_targets = 4
+for p in range(3, 7):
     list_interv = []
     for L in range(p+1):
         for subset in itertools.combinations(range(p), L):
@@ -89,7 +89,7 @@ for p in range(3, 10):
             if nx.is_directed_acyclic_graph(nxA) and nx.is_connected(nxA_undir):
                 W = A * np.random.uniform(0.5, 1, size=A.shape)
                 scm = sempler.LGANM(W, (0, 0), (1, 2))
-                n = 10
+                n = 100
                 true_interv = [[]] + intervention_targets(p, num_interv_targets - 1, (1, p))
                 data = []
                 for i in true_interv:
@@ -248,5 +248,3 @@ for p in range(3, 10):
     print("Infinite score not true", count_inf)
     print("True Inf Score = Max Inf Score", inf_count)
     print("True Inf Score = Greedy Inf Score", inf_count_greedy)
-
-
