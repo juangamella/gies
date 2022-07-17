@@ -64,6 +64,75 @@ import ges.utils as utils
 from ges.scores.gauss_obs_l0_pen import GaussObsL0Pen
 from ges.scores.gauss_int_l0_pen import GaussIntL0Pen
 from ges.scores.exp_gauss_int_l0_pen import ExpGaussIntL0Pen
+import copy
+
+
+def greedy_algo(data, mean=[], sigma=[], K=[]):
+    p = data[0].shape[1]
+    max_interv_greedy = [[] for x in range(len(data))]
+    pdag = exp_fit_bic(data, max_interv_greedy, mean, sigma, K)[0]
+    max_pdag_greedy = pdag
+    dag = utils.pdag_to_dag(pdag)
+    full_score = ExpGaussIntL0Pen(data, max_interv_greedy, mean, sigma, K).full_score(dag)
+    max_score_greedy = full_score
+    while True:
+        max_score_old = max_score_greedy
+        max_interv_forw_step, max_score_forw_step, max_pdag_forw_step = forward(data, max_interv_greedy, p, mean, sigma, K)
+        max_interv_back_step, max_score_back_step, max_pdag_back_step = backward(data, max_interv_forw_step, p, mean, sigma, K)
+        if max_score_old < max_score_back_step:
+            max_interv_greedy = copy.deepcopy(max_interv_back_step)
+            max_score_greedy = max_score_back_step
+            max_pdag_greedy = max_pdag_back_step
+        else:
+            if max_score_forw_step > max_score_greedy:
+                max_interv_greedy = copy.deepcopy(max_interv_forw_step)
+                max_score_greedy = max_score_forw_step
+                max_pdag_greedy = max_pdag_forw_step
+        if max_score_greedy == max_score_old:
+            break
+    return max_interv_greedy, max_pdag_greedy
+
+
+def forward(data, I_old, p, mean, sigma, K):
+    I_max = copy.deepcopy(I_old)
+    S_max = -np.inf
+    max_pdag_forw = np.zeros((p, p))
+    for (index, I_index) in enumerate(I_old):
+        if index == 0:
+            continue
+        list_check = list(set(range(p)) - set(I_index))
+        for k in list_check:
+            I = copy.deepcopy(I_old)
+            I[index].append(k)
+            pdag = exp_fit_bic(data, I, mean, sigma, K)[0]
+            dag = utils.pdag_to_dag(pdag)
+            full_score = ExpGaussIntL0Pen(data, I, mean, sigma, K).full_score(dag)
+            if full_score > S_max:
+                I_max = copy.deepcopy(I)
+                S_max = full_score
+                max_pdag_forw = pdag
+    return I_max, S_max, max_pdag_forw
+
+
+def backward(data, I_old, p, mean, sigma, K):
+    I_max = copy.deepcopy(I_old)
+    S_max = -np.inf
+    max_pdag_back = np.zeros((p, p))
+    for (index, I_index) in enumerate(I_old):
+        if index == 0:
+            continue
+        for i_back in I_index:
+            I = copy.deepcopy(I_old)
+            I[index].remove(i_back)
+            pdag = exp_fit_bic(data, I, mean, sigma, K)[0]
+            dag = utils.pdag_to_dag(pdag)
+            full_score = ExpGaussIntL0Pen(data, I, mean, sigma, K).full_score(dag)
+            if full_score > S_max:
+                I_max = I
+                S_max = full_score
+                max_pdag_back = pdag
+    return I_max, S_max, max_pdag_back
+
 
 
 def exp_fit_bic(data, interv, mean=[], sigma=[], K=[], A0=None, phases=['forward', 'backward', 'turning'], iterate=True, debug=0):
@@ -278,7 +347,6 @@ def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate
             print("-------------------------") if debug else None
             while True:
                 score_change, new_A = fun(A, score_class, max(0, debug - 1))
-                # TODO
                 # Was > 0, but might be stuck in loop for the turn operator
                 if score_change > 0.001:
                     # Transforming the partial I-essential graph into an I-essential graph
