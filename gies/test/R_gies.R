@@ -35,8 +35,8 @@
 # are fixed
 
 library(pcalg)
-path_out = '/Users/olga/PycharmProjects/gies2/ges/test/~'
-data = read.csv('/Users/olga/PycharmProjects/gies2/ges/test/data', header = FALSE)
+path_out = '/tmp/gies_R_test/'
+data = read.csv('/tmp/gies_R_test/data.csv', header = FALSE)
 targets <- list(integer(0), 2, 3)
 target.index <- c(rep(1, 10000), rep(2, 10000), rep(3, 10000))
 
@@ -60,7 +60,7 @@ score$pp.dat$scatter[[score$pp.dat$scatter.index[1]]]/score$pp.dat$data.count[1]
 
 
 scores <- c(score_empty_graph, score_gies, score_true)
-write.table(scores,'/Users/olga/PycharmProjects/gies2/ges/test/scores.csv',row.names=FALSE,col.names=FALSE)
+write.table(scores,'/tmp/gies_R_test/scores.csv',row.names=FALSE,col.names=FALSE)
 
 P <- matrix(0, ncol(data), ncol(data))
 for (k in 1:ncol(data))
@@ -72,4 +72,4 @@ for (k in 1:ncol(data))
     }
 }
 
-write.table(P, '/Users/olga/PycharmProjects/gies2/ges/test/A_gies.csv',row.names=FALSE,col.names=FALSE)
+write.table(P, '/tmp/gies_R_test/A_gies.csv',row.names=FALSE,col.names=FALSE)
