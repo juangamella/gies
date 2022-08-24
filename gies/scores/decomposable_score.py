@@ -1,4 +1,4 @@
-# Copyright 2021 Juan L Gamella
+# Copyright 2022 Juan L. Gamella
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -48,13 +48,13 @@ import copy
 # (observational) environment
 
 
-class DecomposableScore():
-
-    def __init__(self, data, cache=True, debug=0):
+class DecomposableScore:
+    def __init__(self, data, interv, cache=True, debug=0):
         self._data = copy.deepcopy(data)
         self._cache = {} if cache else None
         self._debug = debug
         self.p = None
+        self.interv = interv
 
     def local_score(self, x, pa):
         """
@@ -81,8 +81,9 @@ class DecomposableScore():
             key = (x, tuple(sorted(pa)))
             try:
                 score = self._cache[key]
-                print("score%s: using cached value %0.2f" %
-                      (key, score)) if self._debug >= 2 else None
+                print(
+                    "score%s: using cached value %0.2f" % (key, score)
+                ) if self._debug >= 2 else None
             except KeyError:
                 score = self._compute_local_score(x, pa)
                 self._cache[key] = score

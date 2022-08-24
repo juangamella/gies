@@ -1,4 +1,4 @@
-# Copyright 2021 Juan L Gamella
+# Copyright 2022 Juan L. Gamella
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -44,11 +44,11 @@ class TestScore(DecomposableScore):
     def _compute_local_score(self, x, pa):
         return np.random.uniform()
 
+
 # Tests for the decomposable score class
 
 
 class DecomposableScoreTests(unittest.TestCase):
-
     def test_initialization(self):
         p, n = 10, 1000
         data = np.random.uniform(size=(n, p))

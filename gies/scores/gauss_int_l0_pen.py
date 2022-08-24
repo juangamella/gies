@@ -1,4 +1,4 @@
-# Copyright 2021 Juan L Gamella
+# Copyright 2022 Olga Kolotuhina, Juan L. Gamella
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -39,29 +39,28 @@ from .decomposable_score import DecomposableScore
 # (observational) environment
 
 
-class GaussObsL0Pen(DecomposableScore):
+class GaussIntL0Pen(DecomposableScore):
     """
-    Implements a cached l0-penalized gaussian likelihood score.
+    Implements a cached l0-penalized gaussian likelihood score for the GIES setting.
 
     """
 
-    def __init__(self, data, lmbda=None, method='scatter', cache=True, debug=0):
+    def __init__(self, data, interv, lmbda=None, cache=True, debug=0):
         """Creates a new instance of the class.
 
         Parameters
         ----------
-        data : numpy.ndarray
+        data : list of numpy.ndarray
+            every matrix in the list corresponds to an environment,
             the nxp matrix containing the observations of each
             variable (each column corresponds to a variable).
+        interv: a list of lists
+            a list of the interventions sets which
+            corresponds to the environments in data
         lmbda : float or NoneType, optional
             the regularization parameter. If None, defaults to the BIC
             score, i.e. lmbda = 1/2 * log(n), where n is the number of
             observations.
-        method : {'scatter', 'raw'}, optional
-            the method used to compute the likelihood. If 'scatter',
-            the empirical covariance matrix (i.e. scatter matrix) is
-            used. If 'raw', the likelihood is computed from the raw
-            data. In both cases an intercept is fitted.
         cache : bool, optional
            if computations of the local score should be cached for
            future calls. Defaults to True.
@@ -70,22 +69,42 @@ class GaussObsL0Pen(DecomposableScore):
             correspond to increased verbosity.
 
         """
-        if type(data) != np.ndarray:
-            raise TypeError("data should be numpy.ndarray, not %s." % type(data))
+        super().__init__(data, interv, cache=cache, debug=debug)
+        self.p = self._data[0].shape[1]
+        self.n_obs = np.array([len(env) for env in self._data])
+        # Computing the sample covariances
+        self._data = [sample - sample.mean(axis=0) for sample in self._data]
+        self.sample_cov = np.array(
+            [1 / self.n_obs[ind] * env.T @ env for (ind, env) in enumerate(self._data)]
+        )
+        # Discarded options for computing the sample covariances
+        #  a) This is different to how it is computed in the PCALG pacakge
+        # self.sample_cov = np.array([np.cov(env, rowvar=False, ddof=0) for env in self._data])
+        #  c) This also sometimes yields outputs which are different to what is computed in PCALG
+        # sample_cov = []
+        # for i, env in enumerate(self._data):
+        #     mean = np.mean(env, axis=0)
+        #     aux = env - mean
+        #     sample_cov.append(1 / self.n_obs[i] * aux.T @ aux)
+        # self.sample_cov = np.array(sample_cov)
 
-        super().__init__(data, cache=cache, debug=debug)
+        self.N = sum(self.n_obs)
+        self.lmbda = 0.5 * np.log(self.N) if lmbda is None else lmbda
+        self.num_not_interv = np.zeros(self.p)
+        self.part_sample_cov = np.zeros((self.p, self.p, self.p))
 
-        self.n, self.p = data.shape
-        self.lmbda = 0.5 * np.log(self.n) if lmbda is None else lmbda
-        self.method = method
+        # Check that the interventions form a conservative family of targets
+        for j in range(self.p):
+            if sum(i.count(j) for i in self.interv) == len(self._data):
+                raise ValueError("The family of targets is not conservative")
 
-        # Precompute scatter matrices if necessary
-        if method == 'scatter':
-            self._scatter = np.cov(data, rowvar=False, ddof=0)
-        elif method == 'raw':
-            self._centered = data - np.mean(data, axis=0)
-        else:
-            raise ValueError('Unrecognized method "%s"' % method)
+        # Computing the numbers of non-interventions of a variable and the corresponding partial covariance matrix
+        for k in range(self.p):
+            for (i, n) in enumerate(self.n_obs):
+                if k not in set(self.interv[i]):
+                    self.num_not_interv[k] += n
+                    self.part_sample_cov[k] += self.sample_cov[i] * n
+            self.part_sample_cov[k] = self.part_sample_cov[k] / self.num_not_interv[k]
 
     def full_score(self, A):
         """
@@ -107,29 +126,24 @@ class GaussObsL0Pen(DecomposableScore):
         """
         # Compute MLE
         B, omegas = self._mle_full(A)
-        # Compute log-likelihood (without log(2π) term)
-        K = np.diag(1 / omegas)
-        I_B = np.eye(self.p) - B.T
-        log_term = self.n * np.log(omegas.prod())
-        if self.method == 'scatter':
-            # likelihood = 0.5 * self.n * (np.log(det_K) - np.trace(K @ I_B @ self._scatter @ I_B.T))
-            likelihood = log_term + self.n * np.trace(K @ I_B @ self._scatter @ I_B.T)
-        else:
-            # Center the data, exclude the intercept column
-            inv_cov = I_B.T @ K @ I_B
-            cov_term = 0
-            for i, x in enumerate(self._centered):
-                cov_term += x @ inv_cov @ x
-            likelihood = log_term + cov_term
-        #   Note: the number of parameters is the number of edges + the p marginal variances
-        l0_term = self.lmbda * (np.sum(A != 0) + 1 * self.p)
-        score = -0.5 * likelihood - l0_term
+        likelihood = 0
+        for j, sigma in enumerate(self.part_sample_cov):
+            gamma = 1 / omegas[j]
+            likelihood += self.num_not_interv[j] * (
+                np.log(gamma)
+                - gamma
+                * (np.eye(self.p) - B)[:, j]
+                @ sigma
+                @ (np.eye(self.p) - B)[:, j].T
+            )
+        l0_term = self.lmbda * (np.sum(A != 0) + self.p)
+        score = 0.5 * likelihood - l0_term
         return score
 
     # Note: self.local_score(...), with cache logic, already defined
     # in parent class DecomposableScore.
 
-    def _compute_local_score(self, x, pa):
+    def _compute_local_score(self, k, pa):
         """
         Given a node and its parents, return the local l0-penalized
         log-likelihood of a sample from a single environment, by finding
@@ -151,9 +165,10 @@ class GaussObsL0Pen(DecomposableScore):
         """
         pa = list(pa)
         # Compute MLE
-        b, sigma = self._mle_local(x, pa)
+        b, sigma = self._mle_local(k, pa)
         # Compute log-likelihood (without log(2π) term)
-        likelihood = -0.5 * self.n * (1 + np.log(sigma))
+        n = self.num_not_interv[k]
+        likelihood = -0.5 * n * (1 + np.log(sigma))
         #  Note: the number of parameters is the number of parents (one
         #  weight for each) + the marginal variance of x
         l0_term = self.lmbda * (len(pa) + 1)
@@ -191,7 +206,7 @@ class GaussObsL0Pen(DecomposableScore):
             B[:, j], omegas[j] = self._mle_local(j, parents)
         return B, omegas
 
-    def _mle_local(self, j, parents):
+    def _mle_local(self, k, pa):
         """Finds the maximum likelihood estimate of the local model
         between a node and its parents.
 
@@ -211,30 +226,18 @@ class GaussObsL0Pen(DecomposableScore):
             the estimate noise-term variance of variable x
 
         """
-        parents = list(parents)
+        pa = list(pa)
         b = np.zeros(self.p)
-        # Compute the regression coefficients from a least squares
-        # regression on the raw data
-        if self.method == 'raw':
-            Y = self._centered[:, j]
-            if len(parents) > 0:
-                X = np.atleast_2d(self._centered[:, parents])
-                # Perform regression
-                coef = np.linalg.lstsq(X, Y, rcond=None)[0]
-                b[parents] = coef
-                sigma = np.var(Y - X @ coef)
-            else:
-                sigma = np.var(Y, ddof=0)
-        # Or compute the regression coefficients from the
-        # empirical covariance (scatter) matrix
-        # i.e. b = Σ_{j,pa(j)} @ Σ_{pa(j), pa(j)}^-1
-        elif self.method == 'scatter':
-            sigma = self._scatter[j, j]
-            if len(parents) > 0:
-                cov_parents = self._scatter[parents, :][:, parents]
-                cov_j = self._scatter[j, parents]
-                # Use solve instead of inverting the matrix
-                coef = np.linalg.solve(cov_parents, cov_j)
-                sigma = sigma - cov_j @ coef
-                b[parents] = coef
+        S_k = self.part_sample_cov[k]
+        S_kk = S_k[k, k]
+        S_pa_k = S_k[pa, :][:, k]
+        b[pa] = _regress(k, pa, S_k)
+        sigma = S_kk - b[pa] @ S_pa_k
         return b, sigma
+
+
+def _regress(j, pa, cov):
+    # compute the regression coefficients from the
+    # empirical covariance (scatter) matrix i.e. b =
+    # Σ_{j,pa(j)} @ Σ_{pa(j), pa(j)}^-1
+    return np.linalg.solve(cov[pa, :][:, pa], cov[j, pa])

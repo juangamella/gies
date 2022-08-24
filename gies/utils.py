@@ -1,4 +1,4 @@
-# Copyright 2021 Juan L Gamella
+# Copyright 2022 Juan L. Gamella, Olga Kolotuhina
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@ Module containing the auxiliary functions used in the
 implementation of GES, including the PDAG to CPDAG conversion
 algorithm described in Chickering's original GES paper from 2002.
 """
+import copy
 
 import numpy as np
 import itertools
@@ -298,7 +299,9 @@ def separates(S, A, B, G):
     """
     # Check that sets are pairwise disjoint
     if len(A & B) or len(A & S) or len(B & S):
-        raise ValueError("The sets S=%s,A=%s and B=%s are not pairwise disjoint" % (S, A, B))
+        raise ValueError(
+            "The sets S=%s,A=%s and B=%s are not pairwise disjoint" % (S, A, B)
+        )
     for a in A:
         for b in B:
             for path in semi_directed_paths(a, b, G):
@@ -396,6 +399,41 @@ def vstructures(A):
                 vstruct = (i, c, j) if i < j else (j, c, i)
                 vstructs.append(vstruct)
     return set(vstructs)
+
+
+def unshielded_triples(A):
+    """
+    Return all unshielded triples of a DAG or PDAG, given its adjacency matrix.
+
+    Parameters
+    ----------
+    A : np.array
+        The adjacency of the (P)DAG, where A[i,j] != 0 => i->j
+
+    Returns
+    -------
+    unshielded_triples : set()
+        the set of v-structures, where every v-structure is a three
+        element tuple, e.g. (i,j,k) represents the v-structure
+        i -> j <- k, where i < j for consistency.
+
+    """
+    # Construct the skeleton of the graph
+    skeleton_A = skeleton(A)
+    # Search for colliders in the graph with only directed edges
+    triples = np.where((skeleton_A != 0).sum(axis=0) > 1)[0]
+    # For each triple, and all pairs of neighbors, check if the
+    # parents are adjacent in A
+    unshielded_triples = []
+    for c in triples:
+        for (i, j) in itertools.combinations(neighbors(c, skeleton_A), 2):
+            if A[i, j] == 0 and A[j, i] == 0:
+                # Ordering might be defensive here, as
+                # itertools.combinations already returns ordered
+                # tuples; motivation is to not depend on their feature
+                unshielded_triple = (i, c, j) if i < j else (j, c, i)
+                unshielded_triples.append(unshielded_triple)
+    return set(unshielded_triples)
 
 
 def only_directed(P):
@@ -502,49 +540,54 @@ def is_consistent_extension(G, P, debug=False):
     # guaranteed to have
     # no undirected edges
     if debug:
-        print("v-structures (%s) (P,G): " % same_vstructures, vstructures(P), vstructures(G))
+        print(
+            "v-structures (%s) (P,G): " % same_vstructures,
+            vstructures(P),
+            vstructures(G),
+        )
         print("skeleton (%s) (P,G): " % same_skeleton, skeleton(P), skeleton(G))
         print("orientation (%s) (P,G): " % same_orientation, P, G)
     return same_vstructures and same_orientation and same_skeleton
 
+
 # --------------------------------------------------------------------
 # Functions for PDAG to CPDAG conversion
 
-    # The following functions implement the conversion from PDAG to
-    # CPDAG that is carried after each transition to a different
-    # equivalence class, after the selection and application of the
-    # highest scoring insert/delete/turn operator. It consists of the
-    # succesive application of three algorithms, all described in
-    # Appendix C (pages 552,553) of Chickering's 2002 GES paper
-    # (www.jmlr.org/papers/volume3/chickering02b/chickering02b.pdf).
-    #
-    # The algorithms are:
+# The following functions implement the conversion from PDAG to
+# CPDAG that is carried after each transition to a different
+# equivalence class, after the selection and application of the
+# highest scoring insert/delete/turn operator. It consists of the
+# succesive application of three algorithms, all described in
+# Appendix C (pages 552,553) of Chickering's 2002 GES paper
+# (www.jmlr.org/papers/volume3/chickering02b/chickering02b.pdf).
+#
+# The algorithms are:
 
-    #   1. Obtaining a consistent extension of a PDAG, implemented in
-    #   the function pdag_to_dag.
-    #
-    #   2. Obtaining a total ordering of the edges of the extension
-    #   resulting from (1). It is summarized in Fig. 13 of
-    #   Chickering's paper and implemented in the function
-    #   order_edges.
-    #
-    #   3. Labelling the edges as compelled or reversible, by which we
-    #   can easily obtain the CPDAG. It is summarized in Fig. 14 of
-    #   Chickering's paper and implemented in the function label_edges.
+#   1. Obtaining a consistent extension of a PDAG, implemented in
+#   the function pdag_to_dag.
+#
+#   2. Obtaining a total ordering of the edges of the extension
+#   resulting from (1). It is summarized in Fig. 13 of
+#   Chickering's paper and implemented in the function
+#   order_edges.
+#
+#   3. Labelling the edges as compelled or reversible, by which we
+#   can easily obtain the CPDAG. It is summarized in Fig. 14 of
+#   Chickering's paper and implemented in the function label_edges.
 
-    # The above are put together in the function pdag_to_cpdag
+# The above are put together in the function pdag_to_cpdag
 
-    # NOTE!!!: Algorithm (1) is from the 1992 paper "A simple
-    # algorithm to construct a consistent extension of a partially
-    # oriented graph" by Dorit Dor and Michael Tarsi. There is an
-    # ERROR in the summarized version in Chickering's paper. In
-    # particular, the condition that N_x U Pa_x is a clique is not
-    # equivalent to the condition from Dor & Torsi that every neighbor
-    # of X should be adjacent to all of X's adjacent nodes. The
-    # condition summarized in Chickering is more restrictive (i.e. it
-    # also asks that the parents of X are adjacent to each other), but
-    # this only results in an error for some graphs, and was only
-    # uncovered during exhaustive testing.
+# NOTE!!!: Algorithm (1) is from the 1992 paper "A simple
+# algorithm to construct a consistent extension of a partially
+# oriented graph" by Dorit Dor and Michael Tarsi. There is an
+# ERROR in the summarized version in Chickering's paper. In
+# particular, the condition that N_x U Pa_x is a clique is not
+# equivalent to the condition from Dor & Torsi that every neighbor
+# of X should be adjacent to all of X's adjacent nodes. The
+# condition summarized in Chickering is more restrictive (i.e. it
+# also asks that the parents of X are adjacent to each other), but
+# this only results in an error for some graphs, and was only
+# uncovered during exhaustive testing.
 
 # The complete pipeline: pdag -> dag -> ordered -> labelled -> cpdag
 
@@ -570,6 +613,7 @@ def pdag_to_cpdag(pdag):
     dag = pdag_to_dag(pdag)
     # 2. Recover the cpdag
     return dag_to_cpdag(dag)
+
 
 # dag -> ordered -> labelled -> cpdag
 
@@ -604,6 +648,135 @@ def dag_to_cpdag(G):
     for (x, y) in zip(fros, tos):
         cpdag[x, y], cpdag[y, x] = 1, 1
     return cpdag
+
+
+def check_markov_equiv(G1, G2):
+    """
+    Checks if two DAGs are Markov equivalent
+
+    Parameters
+    ----------
+    G1 : np.array
+        The adjacency matrix of a DAG
+    G2: np.array
+        The adjacency matrix of a DAG
+
+    Returns
+    -------
+    True if the graphs are Markov equivalent, False otherwise
+
+    """
+    C1 = dag_to_cpdag(G1)
+    C2 = dag_to_cpdag(G2)
+    return np.all(C1 == C2)
+
+
+def check_o_equiv(G1, I1, G2, I2):
+    """
+    Checks if two DAGs are Markov equivalent
+
+    Parameters
+    ----------
+    G1 : np.array
+        The adjacency matrix of a DAG
+    G2: np.array
+        The adjacency matrix of a DAG
+
+    Returns
+    -------
+    True if the graphs are Markov equivalent, False otherwise
+
+    """
+    for interv in range(len(I1)):
+        G1_interv = intervened_graph(G1, I1[interv])
+        G2_interv = intervened_graph(G2, I2[interv])
+        if not check_markov_equiv(G1_interv, G2_interv):
+            return False
+    return True
+
+
+def pdag_to_all_dags(P):
+    """
+    Find all consistent extensions of the given PDAG using _pdag_to_all_dags. Return a ValueError
+    exception if the PDAG does not admit a consistent extension.
+
+    Parameters
+    ----------
+    P : np.array
+        adjacency matrix representing the PDAG connectivity, where
+        P[i,j] = 1 => i->j
+
+    Returns
+    -------
+    all_dags : list of np.array
+        the adjacency matrices of all DAGs which are consistent extensions
+        (i.e. same v-structures and skeleton) of P.
+
+    """
+    all_dags = _pdag_to_all_dags(P, list(range(len(P))), [])
+    if not all_dags:
+        raise ValueError("PDAG does not admit consistent extension")
+    return all_dags
+
+
+def _pdag_to_all_dags(P, indexes, tmp):
+    """
+    Find all consistent extensions of the given PDAG recursively. Return a ValueError
+    exception if the PDAG does not admit a consistent extension.
+
+    Parameters
+    ----------
+    P : np.array
+        adjacency matrix representing the PDAG connectivity, where
+        P[i,j] = 1 => i->j
+    indexes: list
+        list of indices for which the induced subgraph needs to be oriented
+    tmp: list of np.arrays
+        list of already found consistent extensions
+
+    Returns
+    -------
+    tmp : list of np.array
+        the adjacency matrices of some DAGs which are consistent extensions
+        (i.e. same v-structures and skeleton) of P.
+
+    """
+    # Check if there are any undirected edges in P
+    if sum(sum(only_undirected(P))) > 0:
+        found = False
+        i = 0
+        P_temp = np.zeros_like(P)
+        # Consider only the subgraph which is induced by indexes
+        P_temp[np.ix_(indexes, indexes)] = P[np.ix_(indexes, indexes)]
+        # Select a node which
+        #   1. has no outgoing edges in P (i.e. childless, is a sink)
+        #   2. all its neighbors are adjacent to all its adjacent nodes
+        for i in indexes:
+            P2 = P.copy()
+            indexes2 = indexes.copy()
+            # Check condition 1
+            sink = len(ch(i, P_temp)) == 0
+            # Check condition 2
+            neighbors_i = neighbors(i, P_temp)
+            adj_i = adj(i, P_temp)
+            adj_neighbors = np.all([adj_i - {y} <= adj(y, P_temp) for y in neighbors_i])
+            found = sink and adj_neighbors
+            # If found, orient all incident undirected edges and
+            # remove i from the subgraph
+            if found:
+                # Orient all incident undirected edges inwards
+                for j in neighbors_i:
+                    P2[i, j] = 0
+                indexes2.remove(i)
+                # keep adding directed edges recursively
+                # to the subgraph not including the node i
+                tmp = _pdag_to_all_dags(P2, indexes2, tmp)
+        # A node which satisfies conditions 1,2 exists iff the
+        # PDAG admits a consistent extension
+    else:
+        # add P to the list if it is not already in tmp
+        tmp.append(P) if not any((P == x).all() for x in tmp) else None
+    return tmp
 
 
 def pdag_to_dag(P, debug=False):
@@ -644,7 +817,9 @@ def pdag_to_dag(P, debug=False):
             n_i = neighbors(i, P)
             adj_i = adj(i, P)
             adj_neighbors = np.all([adj_i - {y} <= adj(y, P) for y in n_i])
-            print("   i:", i, ": n=", n_i, "adj=", adj_i, "ch=", ch(i, P)) if debug else None
+            print(
+                "   i:", i, ": n=", n_i, "adj=", adj_i, "ch=", ch(i, P)
+            ) if debug else None
             found = sink and adj_neighbors
             # If found, orient all incident undirected edges and
             # remove i from the subgraph
@@ -772,6 +947,7 @@ def label_edges(ordered):
             labelled[unknown, y] = COM if z_exists else REV
     return labelled
 
+
 # --------------------------------------------------------------------
 # General utilities
 
@@ -798,7 +974,7 @@ def cartesian(arrays, out=None, dtype=np.byte):
 
     Examples
     --------
-    >>> cartesian(([1, 2, 3], [4, 5], [6, 7]))
+    >>> cartesian(([1, 2, 3], [4, 5], [6, 7]), dtype=int)
     array([[1, 4, 6],
            [1, 4, 7],
            [1, 5, 6],
@@ -824,7 +1000,7 @@ def cartesian(arrays, out=None, dtype=np.byte):
     if arrays[1:]:
         cartesian(arrays[1:], out=out[0:m, 1:])
         for j in range(1, arrays[0].size):
-            out[j * m:(j + 1) * m, 1:] = out[0:m, 1:]
+            out[j * m : (j + 1) * m, 1:] = out[0:m, 1:]
     return out
 
 
@@ -924,8 +1100,299 @@ def delete(array, mask, axis=None):
         a copy of array with the elements specified by mask removed
 
     """
-    if np.version.version < '1.19.0':
+    if np.version.version < "1.19.0":
         idx = np.where(mask)[0]
         return np.delete(array, idx, axis)
     else:
         return np.delete(array, mask, axis)
+
+
+def maximum_cardinality_search(G, nodes=None):
+    """
+    Finds a perfect elimination ordering for an undirected graph.
+
+    Parameters
+    ----------
+    G : np.array
+        The adjacency matrix of an undirected graph G
+
+    nodes : list, optional
+        An ordering of the nodes of G, if none is passed, the numerical ordering is used
+
+    Returns
+    -------
+    ordering : A perfect elimination ordering for G
+    Note: the ordering is not unique and depends on the order of V
+
+    Example
+    -------
+    >>> G = np.array([[0, 1, 0, 0, 1, 0, 0],
+    ...              [1, 0, 1, 0, 1, 1, 0],
+    ...              [0, 1, 0, 1, 1, 1, 1],
+    ...              [0, 0, 1, 0, 0, 0, 1],
+    ...              [1, 1, 1, 0, 0, 1, 0],
+    ...              [0, 1, 1, 0, 1, 0, 0],
+    ...              [0, 0, 1, 1, 0, 0, 0]])
+    >>> V = [2, 4, 5, 1, 3, 0, 6]
+    >>> maximum_cardinality_search(G, V)
+    [2, 4, 5, 1, 0, 3, 6]
+
+    """
+    # Testing for any directed edges
+    if np.any(only_directed(G)):
+        raise ValueError("G has directed edges")
+    # If nodes = None, use the numerical ordering
+    if not nodes:
+        nodes = list(range(len(G)))
+    ordering = []
+    nodes_copy = nodes.copy()
+    G_copy = G.copy()
+    # Weights for the ordering
+    W = [0] * len(nodes)
+    for i in range(len(nodes)):
+        # Find the first index with max weight and its node value:
+        arg_max = np.argmax(W)
+        node_max = nodes_copy[arg_max]
+        # Delete the node from the list of nodes and weights
+        nodes_copy = np.delete(nodes_copy, arg_max)
+        W = np.delete(W, arg_max)
+        # Append node_max to the ordering
+        ordering.append(node_max)
+        # Add weight to the remaining neighbors of node_max
+        W = W + G_copy[nodes_copy, node_max]
+        # Remove all edges which are connected to node_max
+        G_copy[:, node_max] = 0
+        G_copy[node_max, :] = 0
+    return ordering
+
+
+def strongly_protected(a, b, G, I=[[]]):
+    """
+    Checks if the edge a -> b is strongly protected, based on Definition 14 in GIES (Hauser and Bühlmann)
+    paper
+
+    Parameters
+    ----------
+    a : int
+        edge start position
+    b : int
+        edge end position
+    G : np.array
+        The adjacency matrix of the graph G
+    I : list
+        List of intervention sets
+
+    Returns
+    -------
+    strongly_protected : bool
+        if the edge a -> b is strongly protected
+
+    Example
+    -------
+    >>> a = 2
+    >>> b = 6
+    >>> G = np.array([[0, 1, 0, 0, 1, 0, 0],
+    ...              [1, 0, 1, 0, 1, 1, 0],
+    ...              [0, 1, 0, 1, 0, 1, 1],
+    ...              [0, 0, 0, 0, 0, 0, 1],
+    ...              [1, 1, 0, 0, 0, 1, 0],
+    ...              [0, 0, 0, 0, 0, 0, 0],
+    ...              [0, 0, 0, 0, 0, 0, 0]])
+    >>> I = [[], [3]]
+    >>> strongly_protected(a, b, G, I)
+    True
+
+    """
+    # Get the directed and undirected copies of G
+    dirG = only_directed(G)
+    undirG = only_undirected(G)
+
+    # Check if a -> b is in G
+    if dirG[a, b] == 0:
+        raise ValueError("There is no directed edge %d -> %d " % (a, b))
+    # If a or b (but not both) are in an intervention set of I then a -> b is strongly protected.
+    for i in I:
+        if len(set(i) & {a, b}) == 1:
+            return True
+
+    # Check for configuration (a):
+    # Get all the incoming edges of a
+    a_in = np.where(dirG[:, a] == 1)[0]
+    # For every incoming edge c -> a check that c is not adjacent to b
+    for c in a_in:
+        if G[b, c] == 0 and G[c, b] == 0:
+            return True
+
+    # Get all the incoming edges of b
+    b_in = np.where(dirG[:, b] == 1)[0]
+
+    for c1 in b_in:
+        # Check configuration (b)
+        # Check that c1 is not adjacent to a:
+        if c1 != a and G[c1, a] == 0 and G[a, c1] == 0:
+            return True
+
+        # Check configuration (c)
+        # Check that there is the edge a -> c1
+        elif c1 != a and G[c1, a] == 0 and G[a, c1] == 1:
+            return True
+
+        # Check configuration (d)
+        for c2 in b_in:
+            # Check that c1 - a and c2 - a
+            if (
+                c1 != c2
+                and undirG[a, c1] == 1
+                and undirG[a, c2] == 1
+                and undirG[c1, c2] == 0
+            ):
+                return True
+    return False
+
+
+def replace_unprotected(G, I=[[]]):
+    """
+    Transforms a partial I-essential graph into an I-essential graph.
+
+    Parameters
+    ----------
+    G : np.array
+        The adjacency matrix of the partially I-essential graph.
+    I : list of lists
+       Set of intervention sets.
+
+    Returns
+    -------
+    E : np.array
+        I-essential graph of G
+
+    Example
+    -------
+    >>> G = np.array([[0, 0, 0, 0, 1, 0, 0],
+    ...              [1, 0, 0, 0, 1, 1, 0],
+    ...              [0, 1, 0, 1, 0, 1, 1],
+    ...              [0, 0, 0, 0, 0, 0, 1],
+    ...              [0, 0, 0, 0, 0, 1, 0],
+    ...              [0, 0, 0, 0, 0, 0, 0],
+    ...              [0, 0, 0, 0, 0, 0, 0]])
+    >>> I = [[], [3]]
+    >>> replace_unprotected(G, I)
+    array([[0, 1, 0, 0, 1, 0, 0],
+           [1, 0, 1, 0, 1, 1, 0],
+           [0, 1, 0, 1, 0, 1, 1],
+           [0, 0, 0, 0, 0, 0, 1],
+           [1, 1, 0, 0, 0, 1, 0],
+           [0, 0, 0, 0, 0, 0, 0],
+           [0, 0, 0, 0, 0, 0, 0]])
+
+    """
+    # All directed edges are candidates for strongly unprotected/protected edges
+    dirG = only_directed(G)
+    fro, to = np.where(dirG == 1)
+    edge_candidates = list(zip(fro, to))
+
+    E = G.copy()
+    while True:
+        strongly_unprotected = []
+        # With every for loop we create a partial I-essential graph of the previous one
+        for index, edge in enumerate(edge_candidates):
+            # Get the starting and ending position of the edge
+            a = edge[0]
+            b = edge[1]
+            # For every edge check if it is strongly unprotected
+            if not strongly_protected(a, b, E, I):
+                # Convert edge to undirected
+                E[b, a] = 1
+                # Append index of unprotected edge to list
+                strongly_unprotected.append(index)
+        # If there are no strongly unprotected edges then E is I-essential
+        if not strongly_unprotected:
+            break
+        # Delete all strongly unprotected edges from candidates
+        edge_candidates = np.delete(edge_candidates, strongly_unprotected, axis=0)
+    return E
+
+
+def orient_edges(G, ordering):
+    """
+    Orients the edges of an undirected subgraph of G induced by ordering.
+
+    Parameters
+    ----------
+    G : np.array
+        The adjacency matrix of a graph G
+
+    ordering : list
+        An ordering of the nodes of an undirected subgraph of G
+
+    Returns
+    -------
+    G_new : np.array
+            A graph with the same skeleton as G with oriented edges in the subgraph induced by ordering
+
+    Example
+    -------
+    >>> G = np.array([[0, 1, 0, 0, 1, 0, 0],
+    ...              [1, 0, 1, 0, 1, 1, 0],
+    ...              [0, 1, 0, 1, 0, 1, 1],
+    ...              [0, 0, 1, 0, 0, 0, 1],
+    ...              [1, 1, 0, 0, 0, 1, 0],
+    ...              [0, 1, 1, 0, 1, 0, 0],
+    ...              [0, 0, 1, 1, 0, 0, 0]])
+    >>> ordering = [1, 4, 0]
+    >>> orient_edges(G, ordering)
+    array([[0, 0, 0, 0, 0, 0, 0],
+           [1, 0, 1, 0, 1, 1, 0],
+           [0, 1, 0, 1, 0, 1, 1],
+           [0, 0, 1, 0, 0, 0, 1],
+           [1, 0, 0, 0, 0, 1, 0],
+           [0, 1, 1, 0, 1, 0, 0],
+           [0, 0, 1, 1, 0, 0, 0]])
+
+    """
+    G_new = G.copy()
+    # Orienting the edges of the subgraph induced by the ordering
+    for i in ordering:
+        # Orient all undirected edges adjacent to i in the subgraph outwards
+        G_new[ordering, i] = np.where(G_new[i, ordering] != 0, 0, G_new[ordering, i])
+    return G_new
+
+
+def intervened_graph(G, I):
+    """Computes the intervened DAG given an intervention, i.e. by
+    removing the nodes incoming to the intervened variables.
+
+    Parameters
+    ----------
+    G : np.array
+        The adjacency matrix of a DAG.
+    I : list
+        List of the interventional targets.
+
+    Returns
+    -------
+    G_I : The intervened graph.
+
+    """
+    G_I = G.copy()
+    for i in I:
+        G_I[:, i] = 0
+    return G_I
+
+
+def base_targets(G, I):
+    I_base = []
+    for interv in I:
+        base_list = copy.deepcopy(interv)
+        for k in interv:
+            if not pa(k, G):
+                base_list.remove(k)
+        I_base.append(base_list)
+    return I_base
+
+
+# To run the doctests
+if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod()
