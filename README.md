@@ -3,7 +3,7 @@
 This is a python implementation of the GIES algorithm from the paper [*"Characterization and Greedy Learning of Interventional
 Markov Equivalence Classes of Directed Acyclic Graphs"*](https://www.jmlr.org/papers/volume13/hauser12a/hauser12a.pdf) by Alain Hauser and Peter Bühlmann.
 
-The implementation is an extension of the [Python implementation](https://github.com/juangamella/ges) GES algorithm.
+The implementation is an extension of the [Python implementation](https://github.com/juangamella/ges) of the GES algorithm.
 
 ## Installation
 
@@ -13,21 +13,13 @@ You can clone this repo or install the python package via pip:
 pip install gies
 ```
 
-The _only_ dependency outside the Python Standard Library is `numpy>=1.15.0`. See [`requirements.txt`](https://github.com/juangamella/ges/blob/master/requirements.txt) for more details.
+The _only_ dependency outside the Python Standard Library is `numpy>=1.15.0`. See [`requirements.txt`](requirements.txt) for more details.
 
-## When you should (and shouldn't) use this implementation
+## When you should use this implementation
 
 To the best of my knowledge, the only other public implementation of GIES is in the R package [`pcalg`](https://www.rdocumentation.org/packages/pcalg/versions/2.7-1). It can be called from Python through an easy-to-use wrapper in the [Causal Discovery Toolbox](https://github.com/FenTechSolutions/CausalDiscoveryToolbox), but given its scope, this library contains many additional dependencies (including PyTorch) and still requires you to have `R`.
 
-Thus, **this implementation might be for you if**:
-
-- you want a dependency-light implementation (the only dependency outside the Python Standard Library is numpy), or
-- you want to rewrite parts of GES for your own research, but you'd rather do it in Python. The code has been written with an emphasis on readability, and everything is thoroughly documented and referenced back to the [GES](https://www.jmlr.org/papers/volume3/chickering02b/chickering02b.pdf)/[GIES](https://www.jmlr.org/papers/volume13/hauser12a/hauser12a.pdf) papers.
-
-**You should not use this implementation if:**
-
-- you have no interest in modifying GES itself, *and*
-- you care about speed, as the `pcalg` implementation is highly optimized and is **very** fast.
+Thus, **this implementation might be for you if** you want a dependency-light implementation in Python (the only dependency outside the Python Standard Library is numpy).
 
 ## Running the algorithm
 
@@ -36,16 +28,16 @@ Thus, **this implementation might be for you if**:
 GIES comes ready to use with the [Gaussian BIC score](https://en.wikipedia.org/wiki/Bayesian_information_criterion#Gaussian_special_case), i.e. the l0-penalized Gaussian likelihood score. This is the variant which is commonly found in the literature, and the one which was implemented in the original paper. It is made available under the function `gies.fit_bic`.
 
 ```python
-gies.fit_bic(data, I, A0 = None, phases = ['forward', 'backward', 'turning'], debug = 0)
+gies.fit_bic(data, I, A0 = None, phases = ['forward', 'backward', 'turning'], iterate = True, debug = 0)
 ```
 
 **Parameters**
 
 - **data** (np.array): the matrix containing the observations of each variable (each column corresponds to a variable).
 - **I** (list of lists of ints): the family of intervention targets, with each list being the targets in the corresponding environment.
-- **A0** (np.array, optional): the initial CPDAG on which GES will run, where where `A0[i,j] != 0` implies `i -> j` and `A[i,j] != 0 & A[j,i] != 0` implies `i - j`. Defaults to the empty graph.
+- **A0** (np.array, optional): the initial CPDAG on which GIES will run, where where `A0[i,j] != 0` implies `i -> j` and `A[i,j] != 0 & A[j,i] != 0` implies `i - j`. Defaults to the empty graph.
 - **phases** (`[{'forward', 'backward', 'turning'}*]`, optional): this controls which phases of the GIES procedure are run, and in which order. Defaults to `['forward', 'backward', 'turning']`.
-- **iterate** (boolean, default=False): Indicates whether the algorithm should repeat the given phases more than once, until the score is not improved.
+- **iterate** (boolean, default=True): Indicates whether the algorithm should repeat the given phases more than once, until the score is not improved.
 - **debug** (int, optional): if larger than 0, debug are traces printed. Higher values correspond to increased verbosity.
 
 **Returns**
@@ -57,30 +49,36 @@ gies.fit_bic(data, I, A0 = None, phases = ['forward', 'backward', 'turning'], de
 Here [sempler](https://github.com/juangamella/sempler) is used to generate an observational sample from a Gaussian SCM, but this is not a dependency.
 
 ```python
-import ges
+import gies
 import sempler
 import numpy as np
 
 # Generate observational data from a Gaussian SCM using sempler
-A = np.array([[0, 0, 1, 0, 0],
-              [0, 0, 1, 0, 0],
-              [0, 0, 0, 1, 1],
-              [0, 0, 0, 0, 1],
-              [0, 0, 0, 0, 0]])
-W = A * np.random.uniform(1, 2, A.shape) # sample weights
-data = sempler.LGANM(W,(1,2), (1,2)).sample(n=5000)
+A = np.array(
+    [
+        [0, 0, 1, 0, 0],
+        [0, 0, 1, 0, 0],
+        [0, 0, 0, 1, 1],
+        [0, 0, 0, 0, 1],
+        [0, 0, 0, 0, 0],
+    ]
+)
+W = A * np.random.uniform(1, 2, A.shape)  # sample weights
+scm = sempler.LGANM(W, (1, 2), (1, 2))
+data = [scm.sample(n=5000), scm.sample(n=5000, do_interventions={2: (0, 5)})]
 
-# Run GES with the Gaussian BIC score
-estimate, score = ges.fit_bic(data)
+# Run GIES with the gaussian BIC score
+interventions = [[], [2]]
+estimate, score = gies.fit_bic(data, interventions)
 
 print(estimate, score)
 
 # Output
-# [[0 0 1 0 0]
-#  [0 0 1 0 0]
-#  [0 0 0 1 1]
-#  [0 0 0 0 1]
-#  [0 0 0 1 0]] 21511.315220683457
+# [[0. 0. 1. 0. 0.]
+#  [0. 0. 1. 0. 0.]
+#  [0. 0. 0. 0. 1.]
+#  [0. 0. 0. 0. 0.]
+#  [0. 0. 0. 1. 0.]] -29209.33670496673
 ```
 
 ### Using a custom score: `gies.fit`
@@ -88,7 +86,7 @@ print(estimate, score)
 While [Hauser and Bühlmann (2012)](https://www.jmlr.org/papers/volume13/hauser12a/hauser12a.pdff) chose the BIC score, any score-equivalent and locally decomposable function is adequate. To run with another score of your choice, you can use
 
 ```python
-gies.fit(score_class, A0 = None, phases = ['forward', 'backward', 'turning'], debug = 0)
+gies.fit(score_class, A0 = None, phases = ['forward', 'backward', 'turning'], iterate = True, debug = 0)
 ```
 
 where `score_class` is an instance of the class which implements your score. It should inherit from `gies.scores.DecomposableScore`, or define a `local_score` function and a few attributes (see [decomposable_score.py](https://github.com/juangamella/gies/blob/master/gies/scores/decomposable_score.py) for more details).
@@ -98,7 +96,7 @@ where `score_class` is an instance of the class which implements your score. It 
 - **score_class** (ges.scores.DecomposableScore): an instance of a class implementing a locally decomposable score, which inherits from `ges.scores.DecomposableScore`. See [decomposable_score.py](https://github.com/juangamella/ges/blob/master/ges/scores/decomposable_score.py) for more details.
 - **A0** (np.array, optional): the initial CPDAG on which GES will run, where where `A0[i,j] != 0` implies `i -> j` and `A[i,j] != 0 & A[j,i] != 0` implies `i - j`. Defaults to the empty graph.
 - **phases** (`[{'forward', 'backward', 'turning'}*]`, optional): this controls which phases of the GES procedure are run, and in which order. Defaults to `['forward', 'backward', 'turning']`.
-- **iterate** (boolean, default=False): Indicates whether the algorithm should repeat the given phases more than once, until the score is not improved.
+- **iterate** (boolean, default=True): Indicates whether the algorithm should repeat the given phases more than once, until the score is not improved.
 - **debug** (int, optional): if larger than 0, debug are traces printed. Higher values correspond to increased verbosity.
 
 **Returns**
