@@ -84,7 +84,7 @@ def fit_bic(
     phases : [{'forward', 'backward', 'turning'}*], optional
         Which phases of the GIES procedure are run, and in which
         order. Defaults to `['forward', 'backward', 'turning']`.
-    iterate : bool, default=False
+    iterate : bool, default=True
         Indicates whether the given phases should be iterated more
         than once.
     debug : int, optional
@@ -142,7 +142,7 @@ def fit(
     score_class,
     A0=None,
     phases=["forward", "backward", "turning"],
-    iterate=False,
+    iterate=True,
     debug=0,
 ):
     """
@@ -162,7 +162,7 @@ def fit(
     phases : [{'forward', 'backward', 'turning'}*], optional
         which phases of the GIES procedure are run, and in which
         order. Defaults to ['forward', 'backward', 'turning'].
-    iterate : bool, default=False
+    iterate : bool, default=True
         Indicates whether the given phases should be iterated more
         than once.
     debug : int, optional

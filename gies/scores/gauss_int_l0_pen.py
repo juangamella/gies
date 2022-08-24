@@ -45,7 +45,7 @@ class GaussIntL0Pen(DecomposableScore):
 
     """
 
-    def __init__(self, data, interv, lmbda=None, method="scatter", cache=True, debug=0):
+    def __init__(self, data, interv, lmbda=None, cache=True, debug=0):
         """Creates a new instance of the class.
 
         Parameters
@@ -61,11 +61,6 @@ class GaussIntL0Pen(DecomposableScore):
             the regularization parameter. If None, defaults to the BIC
             score, i.e. lmbda = 1/2 * log(n), where n is the number of
             observations.
-        method : {'scatter', 'raw'}, optional
-            the method used to compute the likelihood. If 'scatter',
-            the empirical covariance matrix (i.e. scatter matrix) is
-            used. If 'raw', the likelihood is computed from the raw
-            data. In both cases an intercept is fitted.
         cache : bool, optional
            if computations of the local score should be cached for
            future calls. Defaults to True.
@@ -75,12 +70,24 @@ class GaussIntL0Pen(DecomposableScore):
 
         """
         super().__init__(data, interv, cache=cache, debug=debug)
-        self.p = data[0].shape[1]
-        self.n_obs = np.array([len(env) for env in data])
-        self.sample_cov = np.array([np.cov(env, rowvar=False, ddof=0) for env in data])
-        # self.sample_cov = np.array(
-        #     [1 / self.n_obs[ind] * env.T @ env for (ind, env) in enumerate(data)]
-        # )
+        self.p = self._data[0].shape[1]
+        self.n_obs = np.array([len(env) for env in self._data])
+        # Computing the sample covariances
+        self._data = [sample - sample.mean(axis=0) for sample in self._data]
+        self.sample_cov = np.array(
+            [1 / self.n_obs[ind] * env.T @ env for (ind, env) in enumerate(self._data)]
+        )
+        # Discarded options for computing the sample covariances
+        #  a) This is different to how it is computed in the PCALG pacakge
+        # self.sample_cov = np.array([np.cov(env, rowvar=False, ddof=0) for env in self._data])
+        #  c) This also sometimes yields outputs which are different to what is computed in PCALG
+        # sample_cov = []
+        # for i, env in enumerate(self._data):
+        #     mean = np.mean(env, axis=0)
+        #     aux = env - mean
+        #     sample_cov.append(1 / self.n_obs[i] * aux.T @ aux)
+        # self.sample_cov = np.array(sample_cov)
+
         self.N = sum(self.n_obs)
         self.lmbda = 0.5 * np.log(self.N) if lmbda is None else lmbda
         self.num_not_interv = np.zeros(self.p)
@@ -88,7 +95,7 @@ class GaussIntL0Pen(DecomposableScore):
 
         # Check that the interventions form a conservative family of targets
         for j in range(self.p):
-            if sum(i.count(j) for i in self.interv) == len(data):
+            if sum(i.count(j) for i in self.interv) == len(self._data):
                 raise ValueError("The family of targets is not conservative")
 
         # Computing the numbers of non-interventions of a variable and the corresponding partial covariance matrix
