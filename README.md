@@ -45,6 +45,7 @@ gies.fit_bic(data, I, A0 = None, phases = ['forward', 'backward', 'turning'], de
 - **I** (list of lists of ints): the family of intervention targets, with each list being the targets in the corresponding environment.
 - **A0** (np.array, optional): the initial CPDAG on which GES will run, where where `A0[i,j] != 0` implies `i -> j` and `A[i,j] != 0 & A[j,i] != 0` implies `i - j`. Defaults to the empty graph.
 - **phases** (`[{'forward', 'backward', 'turning'}*]`, optional): this controls which phases of the GIES procedure are run, and in which order. Defaults to `['forward', 'backward', 'turning']`.
+- **iterate** (boolean, default=False): Indicates whether the algorithm should repeat the given phases more than once, until the score is not improved.
 - **debug** (int, optional): if larger than 0, debug are traces printed. Higher values correspond to increased verbosity.
 
 **Returns**
@@ -97,6 +98,7 @@ where `score_class` is an instance of the class which implements your score. It 
 - **score_class** (ges.scores.DecomposableScore): an instance of a class implementing a locally decomposable score, which inherits from `ges.scores.DecomposableScore`. See [decomposable_score.py](https://github.com/juangamella/ges/blob/master/ges/scores/decomposable_score.py) for more details.
 - **A0** (np.array, optional): the initial CPDAG on which GES will run, where where `A0[i,j] != 0` implies `i -> j` and `A[i,j] != 0 & A[j,i] != 0` implies `i - j`. Defaults to the empty graph.
 - **phases** (`[{'forward', 'backward', 'turning'}*]`, optional): this controls which phases of the GES procedure are run, and in which order. Defaults to `['forward', 'backward', 'turning']`.
+- **iterate** (boolean, default=False): Indicates whether the algorithm should repeat the given phases more than once, until the score is not improved.
 - **debug** (int, optional): if larger than 0, debug are traces printed. Higher values correspond to increased verbosity.
 
 **Returns**
