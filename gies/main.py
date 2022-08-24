@@ -1,4 +1,4 @@
-# Copyright 2021 Juan L Gamella
+# Copyright 2022 Olga Kolotuhina, Juan L. Gamella
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -28,18 +28,12 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""The main module, containing the implementation of GES, including
+"""The main module, containing the implementation of GIES, including
 the logic for the insert, delete and turn operators. The
-implementation is directly based on two papers:
-
-  1. The 2002 GES paper by Chickering, "Optimal Structure
-  Identification With Greedy Search" -
-  https://www.jmlr.org/papers/volume3/chickering02b/chickering02b.pdf
-
-  2. For the turn operator, the 2012 GIES paper by Hauser & Bühlmann,
-  "Characterization and Greedy Learning of Interventional Markov
-  Equivalence Classes of Directed Acyclic Graphs" -
-  https://www.jmlr.org/papers/volume13/hauser12a/hauser12a.pdf
+implementation is directly based on the 2012 GIES paper by Hauser &
+Bühlmann, "Characterization and Greedy Learning of Interventional
+Markov Equivalence Classes of Directed Acyclic Graphs" -
+https://www.jmlr.org/papers/volume13/hauser12a/hauser12a.pdf
 
 Further credit is given where due.
 
@@ -61,13 +55,18 @@ Additional modules / packages:
 
 import numpy as np
 import gies.utils as utils
-from gies.scores.gauss_obs_l0_pen import GaussObsL0Pen
 from gies.scores.gauss_int_l0_pen import GaussIntL0Pen
-from gies.scores.exp_gauss_int_l0_pen import ExpGaussIntL0Pen
 
 
-def exp_fit_bic(data, interv, mean=[], sigma=[], K=[], A0=None, phases=['forward', 'backward', 'turning'], iterate=True, debug=0):
-    """Run GES on the given data, using the Gaussian BIC score
+def fit_bic(
+    data,
+    interv,
+    A0=None,
+    phases=["forward", "backward", "turning"],
+    iterate=True,
+    debug=0,
+):
+    """Run GIES on the given data, using the Gaussian BIC score
     (l0-penalized Gaussian Likelihood). The data is not assumed to be
     centered, i.e. an intercept is fitted.
 
@@ -76,12 +75,12 @@ def exp_fit_bic(data, interv, mean=[], sigma=[], K=[], A0=None, phases=['forward
     Parameters
     ----------
     data : list of numpy.ndarray
-        every matrix in the list corresponds to an environment,
+        Every matrix in the list corresponds to an environment,
         the n x p matrix containing the observations, where columns
         correspond to variables and rows to observations.
     interv: a list of lists
-        a list of the interventions sets which
-        corresponds to the environments in data
+        The family of intervention targets, with each list being the
+        targets in the corresponding environment.
     A0 : numpy.ndarray, optional
         The initial I-essential graph on which GIES will run, where where `A0[i,j]
         != 0` implies the edge `i -> j` and `A[i,j] != 0 & A[j,i] !=
@@ -127,7 +126,7 @@ def exp_fit_bic(data, interv, mean=[], sigma=[], K=[], A0=None, phases=['forward
     ...                  [0.07355872, 1.06857039, 2.05006096, 3.07611922]])]
     >>> interv = [[]]
 
-    Run GES using the gaussian BIC score:
+    Run GIES using the gaussian BIC score:
 
     >>> import ges
     >>> gies.fit_bic(data, interv)
@@ -135,83 +134,7 @@ def exp_fit_bic(data, interv, mean=[], sigma=[], K=[], A0=None, phases=['forward
            [0, 0, 0, 0],
            [1, 1, 0, 1],
            [0, 1, 1, 0]]), 15.674267611628233)
-    """
-    # Initialize Gaussian BIC score (precomputes scatter matrices, sets up cache)
-    cache = ExpGaussIntL0Pen(data, interv, mean, sigma, K)
-    # Unless indicated otherwise, initialize to the empty graph
-    A0 = np.zeros((cache.p, cache.p)) if A0 is None else A0
-    return fit(cache, A0, phases, iterate, debug)
 
-
-def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], iterate=True, debug=0):
-    """Run GES on the given data, using the Gaussian BIC score
-    (l0-penalized Gaussian Likelihood). The data is not assumed to be
-    centered, i.e. an intercept is fitted.
-
-    To use a custom score, see gies.fit.
-
-    Parameters
-    ----------
-    data : list of numpy.ndarray
-        every matrix in the list corresponds to an environment,
-        the n x p matrix containing the observations, where columns
-        correspond to variables and rows to observations.
-    interv: a list of lists
-        a list of the interventions sets which
-        corresponds to the environments in data
-    A0 : numpy.ndarray, optional
-        The initial I-essential graph on which GIES will run, where where `A0[i,j]
-        != 0` implies the edge `i -> j` and `A[i,j] != 0 & A[j,i] !=
-        0` implies the edge `i - j`. Defaults to the empty graph
-        (i.e. matrix of zeros).
-    phases : [{'forward', 'backward', 'turning'}*], optional
-        Which phases of the GIES procedure are run, and in which
-        order. Defaults to `['forward', 'backward', 'turning']`.
-    iterate : bool, default=False
-        Indicates whether the given phases should be iterated more
-        than once.
-    debug : int, optional
-        If larger than 0, debug are traces printed. Higher values
-        correspond to increased verbosity.
-
-    Returns
-    -------
-    estimate : numpy.ndarray
-        The adjacency matrix of the estimated I-essential graph
-    total_score : float
-        The score of the estimate.
-
-    Raises
-    ------
-    TypeError:
-        If the type of some of the parameters was not expected,
-        e.g. if data is not a numpy array.
-    ValueError:
-        If the value of some of the parameters is not appropriate,
-        e.g. a wrong phase is specified.
-
-    Example
-    -------
-
-    Data from a linear-gaussian SCM (generated using
-    `sempler <https://github.com/juangamella/sempler>`__)
-
-    >>> import numpy as np
-    >>> data = [np.array([[3.23125779, 3.24950062, 13.430682, 24.67939513],
-    ...                  [1.90913354, -0.06843781, 6.93957057, 16.10164608],
-    ...                  [2.68547149, 1.88351553, 8.78711076, 17.18557716],
-    ...                  [0.16850822, 1.48067393, 5.35871419, 11.82895779],
-    ...                  [0.07355872, 1.06857039, 2.05006096, 3.07611922]])]
-    >>> interv = [[]]
-
-    Run GES using the gaussian BIC score:
-
-    >>> import ges
-    >>> gies.fit_bic(data, interv)
-    (array([[0, 1, 1, 0],
-           [0, 0, 0, 0],
-           [1, 1, 0, 1],
-           [0, 1, 1, 0]]), 15.674267611628233)
     """
     # Initialize Gaussian BIC score (precomputes scatter matrices, sets up cache)
     cache = GaussIntL0Pen(data, interv)
@@ -220,18 +143,23 @@ def fit_bic(data, interv, A0=None, phases=['forward', 'backward', 'turning'], it
     return fit(cache, A0, phases, iterate, debug)
 
 
-def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate=False, debug=0):
+def fit(
+    score_class,
+    A0=None,
+    phases=["forward", "backward", "turning"],
+    iterate=False,
+    debug=0,
+):
     """
     Run GIES using a user defined score.
 
     Parameters
     ----------
     score_class : gies.DecomposableScore
-        an instance of a class which inherits from
+        An instance of a class which inherits from
         gies.decomposable_score.DecomposableScore (or defines a
         local_score function and a p attribute, see
         gies.decomposable_score for more info).
-
     A0 : np.array, optional
         the initial I-essential graph on which GIES will run, where where A0[i,j]
         != 0 implies i -> j and A[i,j] != 0 & A[j,i] != 0 implies i -
@@ -266,11 +194,11 @@ def fit(score_class, A0=None, phases=['forward', 'backward', 'turning'], iterate
     while True:
         last_total_score = total_score
         for phase in phases:
-            if phase == 'forward':
+            if phase == "forward":
                 fun = forward_step
-            elif phase == 'backward':
+            elif phase == "backward":
                 fun = backward_step
-            elif phase == 'turning':
+            elif phase == "turning":
                 fun = turning_step
             else:
                 raise ValueError('Invalid phase "%s" specified' % phase)
@@ -329,7 +257,9 @@ def forward_step(A, cache, debug=0):
     valid_operators = []
     print("  %d candidate edges" % len(edge_candidates)) if debug > 1 else None
     for (x, y) in edge_candidates:
-        valid_operators += score_valid_insert_operators(x, y, A, cache, debug=max(0, debug - 1))
+        valid_operators += score_valid_insert_operators(
+            x, y, A, cache, debug=max(0, debug - 1)
+        )
     # Pick the edge/operator with the highest score
     if len(valid_operators) == 0:
         print("  No valid insert operators remain") if debug else None
@@ -339,8 +269,9 @@ def forward_step(A, cache, debug=0):
         score, x, y, T = valid_operators[np.argmax(scores)]
         # Apply operator
         new_A = insert(x, y, T, A, cache.interv)
-        print("  Best operator: insert(%d, %d, %s) -> (%0.10f)" %
-              (x, y, T, score)) if debug else None
+        print(
+            "  Best operator: insert(%d, %d, %s) -> (%0.10f)" % (x, y, T, score)
+        ) if debug else None
         print(new_A) if debug else None
         return score, new_A
 
@@ -385,7 +316,9 @@ def backward_step(A, cache, debug=0):
     valid_operators = []
     print("  %d candidate edges" % len(edge_candidates)) if debug > 1 else None
     for (x, y) in edge_candidates:
-        valid_operators += score_valid_delete_operators(x, y, A, cache, debug=max(0, debug - 1))
+        valid_operators += score_valid_delete_operators(
+            x, y, A, cache, debug=max(0, debug - 1)
+        )
     # Pick the edge/operator with the highest score
     if len(valid_operators) == 0:
         print("  No valid delete operators remain") if debug else None
@@ -395,8 +328,9 @@ def backward_step(A, cache, debug=0):
         score, x, y, H = valid_operators[np.argmax(scores)]
         # Apply operator
         new_A = delete(x, y, H, A, cache.interv)
-        print("  Best operator: delete(%d, %d, %s) -> (%0.4f)" %
-              (x, y, H, score)) if debug else None
+        print(
+            "  Best operator: delete(%d, %d, %s) -> (%0.4f)" % (x, y, H, score)
+        ) if debug else None
         print(new_A) if debug else None
         return score, new_A
 
@@ -437,7 +371,9 @@ def turning_step(A, cache, debug=0):
     valid_operators = []
     print("  %d candidate edges" % len(edge_candidates)) if debug > 1 else None
     for (x, y) in edge_candidates:
-        valid_operators += score_valid_turn_operators(x, y, A, cache, debug=max(0, debug - 1))
+        valid_operators += score_valid_turn_operators(
+            x, y, A, cache, debug=max(0, debug - 1)
+        )
     # Pick the edge/operator with the highest score
     if len(valid_operators) == 0:
         print("  No valid turn operators remain") if debug else None
@@ -447,9 +383,12 @@ def turning_step(A, cache, debug=0):
         score, x, y, C = valid_operators[np.argmax(scores)]
         # Apply operator
         new_A = turn(x, y, C, A, cache.interv)
-        print("  Best operator: turn(%d, %d, %s) -> (%0.15f)" % (x, y, C, score)) if debug else None
+        print(
+            "  Best operator: turn(%d, %d, %s) -> (%0.15f)" % (x, y, C, score)
+        ) if debug else None
         print(new_A) if debug else None
         return score, new_A
+
 
 # --------------------------------------------------------------------
 # Insert operator
@@ -549,13 +488,17 @@ def score_valid_insert_operators(x, y, A, cache, debug=0):
     if len(T0) == 0:
         subsets = np.zeros((1, p + 1), dtype=np.bool)
     else:
-        subsets = np.zeros((2**len(T0), p + 1), dtype=np.bool)
-        subsets[:, T0] = utils.cartesian([np.array([False, True])] * len(T0), dtype=np.bool)
+        subsets = np.zeros((2 ** len(T0), p + 1), dtype=np.bool)
+        subsets[:, T0] = utils.cartesian(
+            [np.array([False, True])] * len(T0), dtype=np.bool
+        )
     valid_operators = []
     print("    insert(%d,%d) T0=" % (x, y), set(T0)) if debug > 1 else None
     while len(subsets) > 0:
-        print("      len(subsets)=%d, len(valid_operators)=%d" %
-              (len(subsets), len(valid_operators))) if debug > 1 else None
+        print(
+            "      len(subsets)=%d, len(valid_operators)=%d"
+            % (len(subsets), len(valid_operators))
+        ) if debug > 1 else None
         # Access the next subset
         T = np.where(subsets[0, :-1])[0]
         passed_cond_2 = subsets[0, -1]
@@ -585,22 +528,32 @@ def score_valid_insert_operators(x, y, A, cache, debug=0):
                 # If condition 2 holds for NA_yx U T, then it holds for all supersets of T
                 supersets = subsets[:, T].all(axis=1)
                 subsets[supersets, -1] = True
-        print("      insert(%d,%d,%s)" % (x, y, T), "na_yx U T = ",
-              na_yxT, "validity:", cond_1, cond_2) if debug > 1 else None
+        print(
+            "      insert(%d,%d,%s)" % (x, y, T),
+            "na_yx U T = ",
+            na_yxT,
+            "validity:",
+            cond_1,
+            cond_2,
+        ) if debug > 1 else None
         # If both conditions hold, apply operator and compute its score
         if cond_1 and cond_2:
             # Compute the change in score
             aux = na_yxT | utils.pa(y, A)
             old_score = cache.local_score(y, aux)
             new_score = cache.local_score(y, aux | {x})
-            print("        new: s(%d, %s) = %0.6f old: s(%d, %s) = %0.6f" %
-                  (y, aux | {x}, new_score, y, aux, old_score)) if debug > 1 else None
+            print(
+                "        new: s(%d, %s) = %0.6f old: s(%d, %s) = %0.6f"
+                % (y, aux | {x}, new_score, y, aux, old_score)
+            ) if debug > 1 else None
             # Add to the list of valid operators
             valid_operators.append((new_score - old_score, x, y, T))
-            print("    insert(%d,%d,%s) -> %0.16f" %
-                  (x, y, T, new_score - old_score)) if debug else None
+            print(
+                "    insert(%d,%d,%s) -> %0.16f" % (x, y, T, new_score - old_score)
+            ) if debug else None
     # Return all the valid operators
     return valid_operators
+
 
 # --------------------------------------------------------------------
 # Delete operator
@@ -648,7 +601,9 @@ def delete(x, y, H, A, I):
     na_yx = utils.na(y, x, A)
     if not H <= na_yx:
         raise ValueError(
-            "The given set H is not valid, H=%s is not a subset of NA_yx=%s" % (H, na_yx))
+            "The given set H is not valid, H=%s is not a subset of NA_yx=%s"
+            % (H, na_yx)
+        )
 
     # Apply operator
     new_A = A.copy()
@@ -714,13 +669,17 @@ def score_valid_delete_operators(x, y, A, cache, debug=0):
     if len(H0) == 0:
         subsets = np.zeros((1, (p + 1)), dtype=np.bool)
     else:
-        subsets = np.zeros((2**len(H0), (p + 1)), dtype=np.bool)
-        subsets[:, H0] = utils.cartesian([np.array([False, True])] * len(H0), dtype=np.bool)
+        subsets = np.zeros((2 ** len(H0), (p + 1)), dtype=np.bool)
+        subsets[:, H0] = utils.cartesian(
+            [np.array([False, True])] * len(H0), dtype=np.bool
+        )
     valid_operators = []
     print("    delete(%d,%d) H0=" % (x, y), set(H0)) if debug > 1 else None
     while len(subsets) > 0:
-        print("      len(subsets)=%d, len(valid_operators)=%d" %
-              (len(subsets), len(valid_operators))) if debug > 1 else None
+        print(
+            "      len(subsets)=%d, len(valid_operators)=%d"
+            % (len(subsets), len(valid_operators))
+        ) if debug > 1 else None
         # Access the next subset
         H = np.where(subsets[0, :-1])[0]
         cond_1 = subsets[0, -1]
@@ -735,22 +694,31 @@ def score_valid_delete_operators(x, y, A, cache, debug=0):
             supersets = subsets[:, H].all(axis=1)
             subsets[supersets, -1] = True
         # If the validity condition holds, apply operator and compute its score
-        print("      delete(%d,%d,%s)" % (x, y, H), "na_yx - H = ",
-              na_yx - set(H), "validity:", cond_1) if debug > 1 else None
+        print(
+            "      delete(%d,%d,%s)" % (x, y, H),
+            "na_yx - H = ",
+            na_yx - set(H),
+            "validity:",
+            cond_1,
+        ) if debug > 1 else None
         if cond_1:
             # Compute the change in score
             aux = (na_yx - set(H)) | utils.pa(y, A) | {x}
             # print(x,y,H,"na_yx:",na_yx,"old:",aux,"new:", aux - {x})
             old_score = cache.local_score(y, aux)
             new_score = cache.local_score(y, aux - {x})
-            print("        new: s(%d, %s) = %0.6f old: s(%d, %s) = %0.6f" %
-                  (y, aux - {x}, new_score, y, aux, old_score)) if debug > 1 else None
+            print(
+                "        new: s(%d, %s) = %0.6f old: s(%d, %s) = %0.6f"
+                % (y, aux - {x}, new_score, y, aux, old_score)
+            ) if debug > 1 else None
             # Add to the list of valid operators
             valid_operators.append((new_score - old_score, x, y, H))
-            print("    delete(%d,%d,%s) -> %0.16f" %
-                  (x, y, H, new_score - old_score)) if debug else None
+            print(
+                "    delete(%d,%d,%s) -> %0.16f" % (x, y, H, new_score - old_score)
+            ) if debug else None
     # Return all the valid operators
     return valid_operators
+
 
 # --------------------------------------------------------------------
 # Turn operator
@@ -908,13 +876,17 @@ def score_valid_turn_operators_dir(x, y, A, cache, debug=0):
     if len(T0) == 0:
         subsets = np.zeros((1, p + 1), dtype=np.bool)
     else:
-        subsets = np.zeros((2**len(T0), p + 1), dtype=np.bool)
-        subsets[:, T0] = utils.cartesian([np.array([False, True])] * len(T0), dtype=np.bool)
+        subsets = np.zeros((2 ** len(T0), p + 1), dtype=np.bool)
+        subsets[:, T0] = utils.cartesian(
+            [np.array([False, True])] * len(T0), dtype=np.bool
+        )
     valid_operators = []
     print("    turn(%d,%d) T0=" % (x, y), set(T0)) if debug > 1 else None
     while len(subsets) > 0:
-        print("      len(subsets)=%d, len(valid_operators)=%d" %
-              (len(subsets), len(valid_operators))) if debug > 1 else None
+        print(
+            "      len(subsets)=%d, len(valid_operators)=%d"
+            % (len(subsets), len(valid_operators))
+        ) if debug > 1 else None
         # Access the next subset
         T = np.where(subsets[0, :-1])[0]
         passed_cond_2 = subsets[0, -1]
@@ -949,20 +921,33 @@ def score_valid_turn_operators_dir(x, y, A, cache, debug=0):
                 supersets = subsets[:, T].all(axis=1)
                 subsets[supersets, -1] = True
         # If both conditions hold, apply operator and compute its score
-        print("      turn(%d,%d,%s)" % (x, y, C), "na_yx =", utils.na(y, x, A),
-              "T =", T, "validity:", cond_1, cond_2) if debug > 1 else None
+        print(
+            "      turn(%d,%d,%s)" % (x, y, C),
+            "na_yx =",
+            utils.na(y, x, A),
+            "T =",
+            T,
+            "validity:",
+            cond_1,
+            cond_2,
+        ) if debug > 1 else None
         if cond_1 and cond_2:
             # Compute the change in score
-            new_score = cache.local_score(y, utils.pa(
-                y, A) | C | {x}) + cache.local_score(x, utils.pa(x, A) - {y})
-            old_score = cache.local_score(y, utils.pa(y, A) | C) + \
-                cache.local_score(x, utils.pa(x, A))
-            print("        new score = %0.6f, old score = %0.6f, y=%d, C=%s" %
-                  (new_score, old_score, y, C)) if debug > 1 else None
+            new_score = cache.local_score(
+                y, utils.pa(y, A) | C | {x}
+            ) + cache.local_score(x, utils.pa(x, A) - {y})
+            old_score = cache.local_score(y, utils.pa(y, A) | C) + cache.local_score(
+                x, utils.pa(x, A)
+            )
+            print(
+                "        new score = %0.6f, old score = %0.6f, y=%d, C=%s"
+                % (new_score, old_score, y, C)
+            ) if debug > 1 else None
             # Add to the list of valid operators
             valid_operators.append((new_score - old_score, x, y, C))
-            print("    turn(%d,%d,%s) -> %0.16f" %
-                  (x, y, C, new_score - old_score)) if debug else None
+            print(
+                "    turn(%d,%d,%s) -> %0.16f" % (x, y, C, new_score - old_score)
+            ) if debug else None
     # Return all the valid operators
     return valid_operators
 
@@ -1002,14 +987,16 @@ def score_valid_turn_operators_undir(x, y, A, cache, debug=0):
     # then there are no valid operators.
     non_adjacents = list(utils.neighbors(y, A) - utils.adj(x, A) - {x})
     if len(non_adjacents) == 0:
-        print("    turn(%d,%d) : ne(y) \\ adj(x) = Ø => stopping" % (x, y)) if debug > 1 else None
+        print(
+            "    turn(%d,%d) : ne(y) \\ adj(x) = Ø => stopping" % (x, y)
+        ) if debug > 1 else None
         return []
     # Otherwise, construct all the possible subsets which will satisfy
     # condition (ii), i.e. all subsets of neighbors of y with at least
     # one which is not adjacent to x
     p = len(A)
     C0 = sorted(utils.neighbors(y, A) - {x})
-    subsets = np.zeros((2**len(C0), p + 1), dtype=np.bool)
+    subsets = np.zeros((2 ** len(C0), p + 1), dtype=np.bool)
     subsets[:, C0] = utils.cartesian([np.array([False, True])] * len(C0), dtype=np.bool)
     # Remove all subsets which do not contain at least one non-adjacent node to x
     to_remove = (subsets[:, non_adjacents] == False).all(axis=1)
@@ -1019,8 +1006,10 @@ def score_valid_turn_operators_undir(x, y, A, cache, debug=0):
     valid_operators = []
     print("    turn(%d,%d) C0=" % (x, y), set(C0)) if debug > 1 else None
     while len(subsets) > 0:
-        print("      len(subsets)=%d, len(valid_operators)=%d" %
-              (len(subsets), len(valid_operators))) if debug > 1 else None
+        print(
+            "      len(subsets)=%d, len(valid_operators)=%d"
+            % (len(subsets), len(valid_operators))
+        ) if debug > 1 else None
         # Access the next subset
         C = set(np.where(subsets[0, :])[0])
         subsets = subsets[1:]
@@ -1049,20 +1038,27 @@ def score_valid_turn_operators_undir(x, y, A, cache, debug=0):
             continue
         # At this point C passes both conditions
         #   Compute the change in score
-        new_score = cache.local_score(y, utils.pa(
-            y, A) | C | {x}) + cache.local_score(x, utils.pa(x, A) | (C & na_yx))
-        old_score = cache.local_score(y, utils.pa(y, A) | C) + \
-            cache.local_score(x, utils.pa(x, A) | (C & na_yx) | {y})
-        print("        new score = %0.6f, old score = %0.6f, y=%d, C=%s" %
-              (new_score, old_score, y, C)) if debug > 1 else None
+        new_score = cache.local_score(y, utils.pa(y, A) | C | {x}) + cache.local_score(
+            x, utils.pa(x, A) | (C & na_yx)
+        )
+        old_score = cache.local_score(y, utils.pa(y, A) | C) + cache.local_score(
+            x, utils.pa(x, A) | (C & na_yx) | {y}
+        )
+        print(
+            "        new score = %0.6f, old score = %0.6f, y=%d, C=%s"
+            % (new_score, old_score, y, C)
+        ) if debug > 1 else None
         #   Add to the list of valid operators
         valid_operators.append((new_score - old_score, x, y, C))
-        print("    turn(%d,%d,%s) -> %0.16f" % (x, y, C, new_score - old_score)) if debug else None
+        print(
+            "    turn(%d,%d,%s) -> %0.16f" % (x, y, C, new_score - old_score)
+        ) if debug else None
     # Return all valid operators
     return valid_operators
 
 
 # To run the doctests
-if __name__ == '__main__':
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod(extraglobs={}, verbose=True)
