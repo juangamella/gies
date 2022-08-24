@@ -17,7 +17,7 @@ The _only_ dependency outside the Python Standard Library is `numpy>=1.15.0`. Se
 
 ## When you should use this implementation
 
-To the best of my knowledge, the only other public implementation of GIES is in the R package [`pcalg`](https://www.rdocumentation.org/packages/pcalg/versions/2.7-1). It can be called from Python through an easy-to-use wrapper in the [Causal Discovery Toolbox](https://github.com/FenTechSolutions/CausalDiscoveryToolbox), but given its scope, this library contains many additional dependencies (including PyTorch) and still requires you to have `R`.
+To the best of our knowledge, the only other public implementation of GIES is in the R package [`pcalg`](https://www.rdocumentation.org/packages/pcalg/versions/2.7-1). It can be called from Python through an easy-to-use wrapper in the [Causal Discovery Toolbox](https://github.com/FenTechSolutions/CausalDiscoveryToolbox), but given its scope, this library contains many additional dependencies (including PyTorch) and still requires you to have `R`.
 
 Thus, **this implementation might be for you if** you want a dependency-light implementation in Python (the only dependency outside the Python Standard Library is numpy).
 
