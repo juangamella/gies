@@ -21,7 +21,7 @@ data = [scm.sample(n=5000), scm.sample(n=5000, do_interventions={2: (0, 5)})]
 interventions = [[], [2]]
 score_class = gies.scores.GaussIntL0Pen(data, interventions)
 
-# Run GES with the gaussian BIC score
+# Run GIES with the gaussian BIC score
 estimate, score = gies.fit(score_class)
 
 print(estimate, score)
