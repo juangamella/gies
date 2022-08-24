@@ -1,4 +1,4 @@
-# Copyright 2021 Juan L Gamella
+# Copyright 2022 Juan L. Gamella, Olga Kolotuhina
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -299,7 +299,9 @@ def separates(S, A, B, G):
     """
     # Check that sets are pairwise disjoint
     if len(A & B) or len(A & S) or len(B & S):
-        raise ValueError("The sets S=%s,A=%s and B=%s are not pairwise disjoint" % (S, A, B))
+        raise ValueError(
+            "The sets S=%s,A=%s and B=%s are not pairwise disjoint" % (S, A, B)
+        )
     for a in A:
         for b in B:
             for path in semi_directed_paths(a, b, G):
@@ -433,6 +435,7 @@ def unshielded_triples(A):
                 unshielded_triples.append(unshielded_triple)
     return set(unshielded_triples)
 
+
 def only_directed(P):
     """
     Return the graph with the same nodes as P and only its directed edges.
@@ -537,49 +540,54 @@ def is_consistent_extension(G, P, debug=False):
     # guaranteed to have
     # no undirected edges
     if debug:
-        print("v-structures (%s) (P,G): " % same_vstructures, vstructures(P), vstructures(G))
+        print(
+            "v-structures (%s) (P,G): " % same_vstructures,
+            vstructures(P),
+            vstructures(G),
+        )
         print("skeleton (%s) (P,G): " % same_skeleton, skeleton(P), skeleton(G))
         print("orientation (%s) (P,G): " % same_orientation, P, G)
     return same_vstructures and same_orientation and same_skeleton
 
+
 # --------------------------------------------------------------------
 # Functions for PDAG to CPDAG conversion
 
-    # The following functions implement the conversion from PDAG to
-    # CPDAG that is carried after each transition to a different
-    # equivalence class, after the selection and application of the
-    # highest scoring insert/delete/turn operator. It consists of the
-    # succesive application of three algorithms, all described in
-    # Appendix C (pages 552,553) of Chickering's 2002 GES paper
-    # (www.jmlr.org/papers/volume3/chickering02b/chickering02b.pdf).
-    #
-    # The algorithms are:
+# The following functions implement the conversion from PDAG to
+# CPDAG that is carried after each transition to a different
+# equivalence class, after the selection and application of the
+# highest scoring insert/delete/turn operator. It consists of the
+# succesive application of three algorithms, all described in
+# Appendix C (pages 552,553) of Chickering's 2002 GES paper
+# (www.jmlr.org/papers/volume3/chickering02b/chickering02b.pdf).
+#
+# The algorithms are:
 
-    #   1. Obtaining a consistent extension of a PDAG, implemented in
-    #   the function pdag_to_dag.
-    #
-    #   2. Obtaining a total ordering of the edges of the extension
-    #   resulting from (1). It is summarized in Fig. 13 of
-    #   Chickering's paper and implemented in the function
-    #   order_edges.
-    #
-    #   3. Labelling the edges as compelled or reversible, by which we
-    #   can easily obtain the CPDAG. It is summarized in Fig. 14 of
-    #   Chickering's paper and implemented in the function label_edges.
+#   1. Obtaining a consistent extension of a PDAG, implemented in
+#   the function pdag_to_dag.
+#
+#   2. Obtaining a total ordering of the edges of the extension
+#   resulting from (1). It is summarized in Fig. 13 of
+#   Chickering's paper and implemented in the function
+#   order_edges.
+#
+#   3. Labelling the edges as compelled or reversible, by which we
+#   can easily obtain the CPDAG. It is summarized in Fig. 14 of
+#   Chickering's paper and implemented in the function label_edges.
 
-    # The above are put together in the function pdag_to_cpdag
+# The above are put together in the function pdag_to_cpdag
 
-    # NOTE!!!: Algorithm (1) is from the 1992 paper "A simple
-    # algorithm to construct a consistent extension of a partially
-    # oriented graph" by Dorit Dor and Michael Tarsi. There is an
-    # ERROR in the summarized version in Chickering's paper. In
-    # particular, the condition that N_x U Pa_x is a clique is not
-    # equivalent to the condition from Dor & Torsi that every neighbor
-    # of X should be adjacent to all of X's adjacent nodes. The
-    # condition summarized in Chickering is more restrictive (i.e. it
-    # also asks that the parents of X are adjacent to each other), but
-    # this only results in an error for some graphs, and was only
-    # uncovered during exhaustive testing.
+# NOTE!!!: Algorithm (1) is from the 1992 paper "A simple
+# algorithm to construct a consistent extension of a partially
+# oriented graph" by Dorit Dor and Michael Tarsi. There is an
+# ERROR in the summarized version in Chickering's paper. In
+# particular, the condition that N_x U Pa_x is a clique is not
+# equivalent to the condition from Dor & Torsi that every neighbor
+# of X should be adjacent to all of X's adjacent nodes. The
+# condition summarized in Chickering is more restrictive (i.e. it
+# also asks that the parents of X are adjacent to each other), but
+# this only results in an error for some graphs, and was only
+# uncovered during exhaustive testing.
 
 # The complete pipeline: pdag -> dag -> ordered -> labelled -> cpdag
 
@@ -605,6 +613,7 @@ def pdag_to_cpdag(pdag):
     dag = pdag_to_dag(pdag)
     # 2. Recover the cpdag
     return dag_to_cpdag(dag)
+
 
 # dag -> ordered -> labelled -> cpdag
 
@@ -808,7 +817,9 @@ def pdag_to_dag(P, debug=False):
             n_i = neighbors(i, P)
             adj_i = adj(i, P)
             adj_neighbors = np.all([adj_i - {y} <= adj(y, P) for y in n_i])
-            print("   i:", i, ": n=", n_i, "adj=", adj_i, "ch=", ch(i, P)) if debug else None
+            print(
+                "   i:", i, ": n=", n_i, "adj=", adj_i, "ch=", ch(i, P)
+            ) if debug else None
             found = sink and adj_neighbors
             # If found, orient all incident undirected edges and
             # remove i from the subgraph
@@ -936,6 +947,7 @@ def label_edges(ordered):
             labelled[unknown, y] = COM if z_exists else REV
     return labelled
 
+
 # --------------------------------------------------------------------
 # General utilities
 
@@ -988,7 +1000,7 @@ def cartesian(arrays, out=None, dtype=np.byte):
     if arrays[1:]:
         cartesian(arrays[1:], out=out[0:m, 1:])
         for j in range(1, arrays[0].size):
-            out[j * m:(j + 1) * m, 1:] = out[0:m, 1:]
+            out[j * m : (j + 1) * m, 1:] = out[0:m, 1:]
     return out
 
 
@@ -1088,7 +1100,7 @@ def delete(array, mask, axis=None):
         a copy of array with the elements specified by mask removed
 
     """
-    if np.version.version < '1.19.0':
+    if np.version.version < "1.19.0":
         idx = np.where(mask)[0]
         return np.delete(array, idx, axis)
     else:
@@ -1136,7 +1148,7 @@ def maximum_cardinality_search(G, nodes=None):
     nodes_copy = nodes.copy()
     G_copy = G.copy()
     # Weights for the ordering
-    W = [0]*len(nodes)
+    W = [0] * len(nodes)
     for i in range(len(nodes)):
         # Find the first index with max weight and its node value:
         arg_max = np.argmax(W)
@@ -1228,22 +1240,26 @@ def strongly_protected(a, b, G, I=[[]]):
         # Check configuration (d)
         for c2 in b_in:
             # Check that c1 - a and c2 - a
-            if c1 != c2 and undirG[a, c1] == 1 and undirG[a, c2] == 1 and undirG[c1, c2] == 0:
+            if (
+                c1 != c2
+                and undirG[a, c1] == 1
+                and undirG[a, c2] == 1
+                and undirG[c1, c2] == 0
+            ):
                 return True
     return False
 
 
 def replace_unprotected(G, I=[[]]):
     """
-    Transforms a partial I-essential graph into an I-essential graph
+    Transforms a partial I-essential graph into an I-essential graph.
 
     Parameters
     ----------
     G : np.array
-        The adjacency matrix of the partially I-essential graph
-
+        The adjacency matrix of the partially I-essential graph.
     I : list of lists
-       Set of intervention sets
+       Set of intervention sets.
 
     Returns
     -------
@@ -1299,7 +1315,7 @@ def replace_unprotected(G, I=[[]]):
 
 def orient_edges(G, ordering):
     """
-    Orients the edges of an undirected subgraph of G induced by ordering
+    Orients the edges of an undirected subgraph of G induced by ordering.
 
     Parameters
     ----------
@@ -1343,20 +1359,19 @@ def orient_edges(G, ordering):
 
 
 def intervened_graph(G, I):
-    """
-    Computes the intervened DAG given an intervention
+    """Computes the intervened DAG given an intervention, i.e. by
+    removing the nodes incoming to the intervened variables.
 
     Parameters
     ----------
     G : np.array
-        The adjacency matrix of a DAG
-
+        The adjacency matrix of a DAG.
     I : list
-        List of the interventional targets
+        List of the interventional targets.
 
     Returns
     -------
-    G_I : The intervened graph
+    G_I : The intervened graph.
 
     """
     G_I = G.copy()
@@ -1379,4 +1394,5 @@ def base_targets(G, I):
 # To run the doctests
 if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

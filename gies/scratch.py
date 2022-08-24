@@ -34,6 +34,10 @@
 # for GIES does this because in their setting the intervention targets
 # are fixed
 
+"""
+Module with old/discarded functions.
+"""
+
 
 def exp_fit_bic(
     data,
