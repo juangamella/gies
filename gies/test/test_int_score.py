@@ -94,22 +94,6 @@ class ScoreTests(unittest.TestCase):
         print("Full vs. acc:", full_score, acc)
         self.assertAlmostEqual(full_score, acc, places=2)
 
-    def test_gies_pdag_vs_gies_score_changes(self):
-        print(
-            "The fullscore of the GIES PDAG vs the score changes returned by GIES + empty graph score"
-        )
-        # Compute a consistent extension of the PDAG and its score
-        A_gies_dag = gies.utils.pdag_to_dag(self.A_gies)
-        score_full_gies = self.score.full_score(A_gies_dag)
-        self.assertIsInstance(score_full_gies, float)
-        # Compute score of the empty graph + score changes from GIES
-        score = (
-            self.score.full_score(np.zeros((self.p, self.p))) + self.score_gies_change
-        )
-        self.assertIsInstance(score, float)
-        print("GIES PDAG vs empty + GIES changes:", score_full_gies, score)
-        self.assertAlmostEqual(score_full_gies, score, places=2)
-
     def test_fullscore_gies_vs_true_score(self):
         print("The fullscore of the GIES PDAG vs the true score")
         # Compute a consistent extension of the PDAG and its score

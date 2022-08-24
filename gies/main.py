@@ -123,12 +123,12 @@ def fit_bic(
 
     Run GIES using the gaussian BIC score:
 
-    >>> import ges
+    >>> import gies
     >>> gies.fit_bic(data, interv)
-    (array([[0, 1, 1, 0],
-           [0, 0, 0, 0],
-           [1, 1, 0, 1],
-           [0, 1, 1, 0]]), 15.674267611628233)
+    (array([[0., 1., 1., 0.],
+           [0., 0., 0., 0.],
+           [1., 1., 0., 1.],
+           [0., 1., 1., 0.]]), -15.641090039220082)
 
     """
     # Initialize Gaussian BIC score (precomputes scatter matrices, sets up cache)
