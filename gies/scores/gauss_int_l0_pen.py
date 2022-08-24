@@ -33,7 +33,6 @@
 
 import numpy as np
 from .decomposable_score import DecomposableScore
-from .experimental import _regress
 
 # --------------------------------------------------------------------
 # l0-penalized Gaussian log-likelihood score for a sample from a single
@@ -228,3 +227,10 @@ class GaussIntL0Pen(DecomposableScore):
         b[pa] = _regress(k, pa, S_k)
         sigma = S_kk - b[pa] @ S_pa_k
         return b, sigma
+
+
+def _regress(j, pa, cov):
+    # compute the regression coefficients from the
+    # empirical covariance (scatter) matrix i.e. b =
+    # Σ_{j,pa(j)} @ Σ_{pa(j), pa(j)}^-1
+    return np.linalg.solve(cov[pa, :][:, pa], cov[j, pa])

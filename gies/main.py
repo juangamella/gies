@@ -59,12 +59,7 @@ from gies.scores.gauss_int_l0_pen import GaussIntL0Pen
 
 
 def fit_bic(
-    data,
-    interv,
-    A0=None,
-    phases=["forward", "backward", "turning"],
-    iterate=True,
-    debug=0,
+    data, I, A0=None, phases=["forward", "backward", "turning"], iterate=True, debug=0
 ):
     """Run GIES on the given data, using the Gaussian BIC score
     (l0-penalized Gaussian Likelihood). The data is not assumed to be
@@ -78,7 +73,7 @@ def fit_bic(
         Every matrix in the list corresponds to an environment,
         the n x p matrix containing the observations, where columns
         correspond to variables and rows to observations.
-    interv: a list of lists
+    I: a list of lists
         The family of intervention targets, with each list being the
         targets in the corresponding environment.
     A0 : numpy.ndarray, optional
@@ -137,7 +132,7 @@ def fit_bic(
 
     """
     # Initialize Gaussian BIC score (precomputes scatter matrices, sets up cache)
-    cache = GaussIntL0Pen(data, interv)
+    cache = GaussIntL0Pen(data, I)
     # Unless indicated otherwise, initialize to the empty graph
     A0 = np.zeros((cache.p, cache.p)) if A0 is None else A0
     return fit(cache, A0, phases, iterate, debug)

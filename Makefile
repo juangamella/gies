@@ -29,7 +29,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 SUITE = all
-PROJECT = ges
+PROJECT = gies
 
 # Run tests
 tests: test examples doctests
@@ -43,13 +43,13 @@ endif
 
 # Run the example scripts in the README
 examples:
-	PYTHONPATH=./ python docs/ges_fit_bic_example.py
-	PYTHONPATH=./ python docs/ges_fit_example.py
+	PYTHONPATH=./ python docs/gies_fit_bic_example.py
+	PYTHONPATH=./ python docs/gies_fit_example.py
 
 # Run the doctests
 doctests:
-	PYTHONPATH=./ python ges/main.py
-	PYTHONPATH=./ python ges/utils.py
+	PYTHONPATH=./ python gies/main.py
+	PYTHONPATH=./ python gies/utils.py
 
 # Set up virtual environment
 venv:
