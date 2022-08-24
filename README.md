@@ -166,11 +166,10 @@ The tests can be run with `make test`. You can add `SUITE=<module_name>` to run 
 They are in the sub package `gies.test`, in the directory `ges/test/`:
 
    - `test_decomposable_score.py`: tests for the decomposable score base class.
-   - `test_gauss_bic.py`: tests for the Gaussian bic score.
-   - `test_operators.py`: tests for the insert, delete and turn operators.
+   - `test_int_score.py`: tests for the Gaussian bic score.
    - `test_pdag_to_cpdag.py`: tests the conversion from PDAG to CPDAG, which is applied after each application of an operator.
    - `test_utils.py`: tests the other auxiliary functions.
-   - `ges.test.test_vs_pcalg`: compares the output of the algorithm vs. that of `pcalg` for randomly generated graphs.
+   - `test_vs_R`: compares the output of the algorithm to that of the R implementation in the [`pcalg`](https://www.rdocumentation.org/packages/pcalg/versions/2.7-1) package.
 
 ## Feedback
 
