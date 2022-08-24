@@ -89,13 +89,13 @@ While [Hauser and Bühlmann (2012)](https://www.jmlr.org/papers/volume13/hauser1
 gies.fit(score_class, A0 = None, phases = ['forward', 'backward', 'turning'], iterate = True, debug = 0)
 ```
 
-where `score_class` is an instance of the class which implements your score. It should inherit from `gies.scores.DecomposableScore`, or define a `local_score` function and a few attributes (see [decomposable_score.py](https://github.com/juangamella/gies/blob/master/gies/scores/decomposable_score.py) for more details).
+where `score_class` is an instance of the class which implements your score. It should inherit from `gies.scores.DecomposableScore`, or define a `local_score` function and a few attributes (see [decomposable_score.py](gies/scores/decomposable_score.py) for more details).
 
 **Parameters**
 
-- **score_class** (ges.scores.DecomposableScore): an instance of a class implementing a locally decomposable score, which inherits from `ges.scores.DecomposableScore`. See [decomposable_score.py](https://github.com/juangamella/ges/blob/master/ges/scores/decomposable_score.py) for more details.
-- **A0** (np.array, optional): the initial CPDAG on which GES will run, where where `A0[i,j] != 0` implies `i -> j` and `A[i,j] != 0 & A[j,i] != 0` implies `i - j`. Defaults to the empty graph.
-- **phases** (`[{'forward', 'backward', 'turning'}*]`, optional): this controls which phases of the GES procedure are run, and in which order. Defaults to `['forward', 'backward', 'turning']`.
+- **score_class** (gies.scores.DecomposableScore): an instance of a class implementing a locally decomposable score, which inherits from `gies.scores.DecomposableScore`. See [decomposable_score.py](gies/scores/decomposable_score.py) for more details.
+- **A0** (np.array, optional): the initial CPDAG on which GIES will run, where where `A0[i,j] != 0` implies `i -> j` and `A[i,j] != 0 & A[j,i] != 0` implies `i - j`. Defaults to the empty graph.
+- **phases** (`[{'forward', 'backward', 'turning'}*]`, optional): this controls which phases of the GIES procedure are run, and in which order. Defaults to `['forward', 'backward', 'turning']`.
 - **iterate** (boolean, default=True): Indicates whether the algorithm should repeat the given phases more than once, until the score is not improved.
 - **debug** (int, optional): if larger than 0, debug are traces printed. Higher values correspond to increased verbosity.
 
@@ -105,37 +105,43 @@ where `score_class` is an instance of the class which implements your score. It 
 
 **Example**
 
-Running GIES on a custom defined score (in this case the same Gaussian BIC score implemented in `ges.scores.GaussObsL0Pen`).
+Running GIES on a custom defined score (in this case the same Gaussian BIC score implemented in `gies.scores.GaussIntL0Pen`).
 
 ```python
-import ges
-import ges.scores
+import gies
+import gies.scores
 import sempler
 import numpy as np
 
 # Generate observational data from a Gaussian SCM using sempler
-A = np.array([[0, 0, 1, 0, 0],
-              [0, 0, 1, 0, 0],
-              [0, 0, 0, 1, 1],
-              [0, 0, 0, 0, 1],
-              [0, 0, 0, 0, 0]])
-W = A * np.random.uniform(1, 2, A.shape) # sample weights
-data = sempler.LGANM(W,(1,2), (1,2)).sample(n=5000)
+A = np.array(
+    [
+        [0, 0, 1, 0, 0],
+        [0, 0, 1, 0, 0],
+        [0, 0, 0, 1, 1],
+        [0, 0, 0, 0, 1],
+        [0, 0, 0, 0, 0],
+    ]
+)
+W = A * np.random.uniform(1, 2, A.shape)  # sample weights
+scm = sempler.LGANM(W, (1, 2), (1, 2))
+data = [scm.sample(n=5000), scm.sample(n=5000, do_interventions={2: (0, 5)})]
 
 # Define the score class
-score_class = ges.scores.GaussIntL0Pen(data)
+interventions = [[], [2]]
+score_class = gies.scores.GaussIntL0Pen(data, interventions)
 
-# Run GIES with the Gaussian BIC score
+# Run GIES with the gaussian BIC score
 estimate, score = gies.fit(score_class)
 
 print(estimate, score)
 
 # Output
-# [[0 0 1 0 0]
-#  [0 0 1 0 0]
-#  [0 0 0 1 1]
-#  [0 0 0 0 1]
-#  [0 0 0 1 0]] 24002.112921580803
+# [[0. 0. 1. 0. 0.]
+#  [0. 0. 1. 0. 0.]
+#  [0. 0. 0. 1. 1.]
+#  [0. 0. 0. 0. 1.]
+#  [0. 0. 0. 1. 0.]] -30310.806829328416
 ```
 
 ## Code Structure
@@ -145,9 +151,9 @@ All the modules can be found inside the `gies/` directory. These include:
   - `gies.main` which is the main module with the calls to start GIES, and contains the implementation of the insert, delete and turn operators.
   - `gies.utils` contains auxiliary functions and the logic to transform a PDAG into a CPDAG, used after each application of an operator.
   - `gies.scores` contains the modules with the score classes:
-      - `ges.scores.decomposable_score` contains the base class for decomposable score classes (see that module for more details).
-      - `ges.scores.gauss_obs_l0_pen` contains an implementation of the cached Gaussian BIC score, as used in the original GES paper.
-   - `gies.test` contains the modules with the unit tests and tests comparing against the algorithm's implementation in the 'pcalg' package.   
+      - `gies.scores.decomposable_score` contains the base class for decomposable score classes (see that module for more details).
+      - `gies.scores.gauss_int_l0_pen` contains an implementation of the cached Gaussian BIC score.
+  - `gies.test` contains the modules with the unit tests and tests comparing against the algorithm's R implementation in the 'pcalg' package.   
 
 ## Tests
 
@@ -157,7 +163,7 @@ The tests can be run with `make test`. You can add `SUITE=<module_name>` to run 
 
 **Test modules**
 
-They are in the sub package `ges.test`, in the directory `ges/test/`:
+They are in the sub package `gies.test`, in the directory `ges/test/`:
 
    - `test_decomposable_score.py`: tests for the decomposable score base class.
    - `test_gauss_bic.py`: tests for the Gaussian bic score.
