@@ -1,10 +1,60 @@
+# Copyright 2022 Olga Kolotuhina, Juan L. Gamella
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+
+# 1. Redistributions of source code must retain the above copyright
+# notice, this list of conditions and the following disclaimer.
+
+# 2. Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+
+# 3. Neither the name of the copyright holder nor the names of its
+# contributors may be used to endorse or promote products derived from
+# this software without specific prior written permission.
+
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+# Function to run GIES with the modified score
+# (scores.exp_gauss_int_l0_pen) which does not remove the term
+# depending on the intervention targets; the original implementation
+# for GIES does this because in their setting the intervention targets
+# are fixed
+
+
+"""Implements a population version of the l0-penalized interventional Gaussian score"""
+
 import numpy as np
 from .decomposable_score import DecomposableScore
 from .experimental import _regress
 
 
 class InfiniteScore(DecomposableScore):
-    def __init__(self, cov, interv, mean=[], sigma=[], K=[], lmbda=None, method='scatter', cache=True, debug=0):
+    def __init__(
+        self,
+        cov,
+        interv,
+        mean=[],
+        sigma=[],
+        K=[],
+        lmbda=None,
+        method="scatter",
+        cache=True,
+        debug=0,
+    ):
         super().__init__(cov, interv, cache=cache, debug=debug)
         self.p = cov[0].shape[1]
         self.n_obs = np.ones(len(interv))
@@ -18,19 +68,20 @@ class InfiniteScore(DecomposableScore):
         if mean:
             for i in range(len(self.interv)):
                 for k in self.interv[i]:
-                    self.C += 0.5 * (np.log(K[i][k, k]) - self.sample_cov[i][k, k]*K[i][k, k])
+                    self.C += 0.5 * (
+                        np.log(K[i][k, k]) - self.sample_cov[i][k, k] * K[i][k, k]
+                    )
                 mask = np.zeros_like(sigma[i])
                 mask[np.ix_(interv[i], interv[i])] = 1
-                self.C += 0.5*mask @ mean[i] @ K[i] @ mean[i]
-
+                self.C += 0.5 * mask @ mean[i] @ K[i] @ mean[i]
 
         # Computing the numbers of non-interventions of a variable and the corresponding partial covariance matrix
         for k in range(self.p):
             for (i, n) in enumerate(self.n_obs):
                 if k not in set(self.interv[i]):
                     self.num_not_interv[k] += n
-                    self.part_sample_cov[k] += self.sample_cov[i]*n
-            self.part_sample_cov[k] = self.part_sample_cov[k]/self.num_not_interv[k]
+                    self.part_sample_cov[k] += self.sample_cov[i] * n
+            self.part_sample_cov[k] = self.part_sample_cov[k] / self.num_not_interv[k]
 
     def full_score(self, A):
         """
@@ -54,9 +105,9 @@ class InfiniteScore(DecomposableScore):
         B, omegas = self._mle_full(A)
         likelihood = 0
         for j, sigma in enumerate(self.part_sample_cov):
-            likelihood += -self.num_not_interv[j]*(1+np.log(omegas[j]))
+            likelihood += -self.num_not_interv[j] * (1 + np.log(omegas[j]))
         l0_term = self.lmbda * (np.sum(A != 0) + self.p)
-        score = 0.5*likelihood - l0_term + self.C
+        score = 0.5 * likelihood - l0_term + self.C
         return score
 
     # Note: self.local_score(...), with cache logic, already defined

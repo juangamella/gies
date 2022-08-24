@@ -1,4 +1,4 @@
-# Copyright 2021 Juan L Gamella
+# Copyright 2022 Olga Kolotuhina, Juan L. Gamella
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -46,7 +46,7 @@ class GaussIntL0Pen(DecomposableScore):
 
     """
 
-    def __init__(self, data, interv, lmbda=None, method='scatter', cache=True, debug=0):
+    def __init__(self, data, interv, lmbda=None, method="scatter", cache=True, debug=0):
         """Creates a new instance of the class.
 
         Parameters
@@ -79,7 +79,9 @@ class GaussIntL0Pen(DecomposableScore):
         self.p = data[0].shape[1]
         self.n_obs = np.array([len(env) for env in data])
         # self.sample_cov = np.array([np.cov(env, rowvar=False, ddof=0) for env in data])
-        self.sample_cov = np.array([1/self.n_obs[ind] * env.T @ env for (ind, env) in enumerate(data)])
+        self.sample_cov = np.array(
+            [1 / self.n_obs[ind] * env.T @ env for (ind, env) in enumerate(data)]
+        )
         self.N = sum(self.n_obs)
         self.lmbda = 0.5 * np.log(self.N) if lmbda is None else lmbda
         self.num_not_interv = np.zeros(self.p)
@@ -95,8 +97,8 @@ class GaussIntL0Pen(DecomposableScore):
             for (i, n) in enumerate(self.n_obs):
                 if k not in set(self.interv[i]):
                     self.num_not_interv[k] += n
-                    self.part_sample_cov[k] += self.sample_cov[i]*n
-            self.part_sample_cov[k] = self.part_sample_cov[k]/self.num_not_interv[k]
+                    self.part_sample_cov[k] += self.sample_cov[i] * n
+            self.part_sample_cov[k] = self.part_sample_cov[k] / self.num_not_interv[k]
 
     def full_score(self, A):
         """
@@ -121,10 +123,15 @@ class GaussIntL0Pen(DecomposableScore):
         likelihood = 0
         for j, sigma in enumerate(self.part_sample_cov):
             gamma = 1 / omegas[j]
-            likelihood += self.num_not_interv[j] * (np.log(gamma) - gamma * (np.eye(self.p) - B)[:, j] @
-                                                    sigma @ (np.eye(self.p) - B)[:, j].T)
+            likelihood += self.num_not_interv[j] * (
+                np.log(gamma)
+                - gamma
+                * (np.eye(self.p) - B)[:, j]
+                @ sigma
+                @ (np.eye(self.p) - B)[:, j].T
+            )
         l0_term = self.lmbda * (np.sum(A != 0) + self.p)
-        score = 0.5*likelihood - l0_term
+        score = 0.5 * likelihood - l0_term
         return score
 
     # Note: self.local_score(...), with cache logic, already defined
@@ -192,7 +199,6 @@ class GaussIntL0Pen(DecomposableScore):
             parents = np.where(A[:, j] != 0)[0]
             B[:, j], omegas[j] = self._mle_local(j, parents)
         return B, omegas
-
 
     def _mle_local(self, k, pa):
         """Finds the maximum likelihood estimate of the local model

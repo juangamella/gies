@@ -1,4 +1,4 @@
-# Copyright 2021 Juan L Gamella
+# Copyright 2022 Juan L. Gamella
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -45,7 +45,7 @@ class GaussObsL0Pen(DecomposableScore):
 
     """
 
-    def __init__(self, data, lmbda=None, method='scatter', cache=True, debug=0):
+    def __init__(self, data, lmbda=None, method="scatter", cache=True, debug=0):
         """Creates a new instance of the class.
 
         Parameters
@@ -80,9 +80,9 @@ class GaussObsL0Pen(DecomposableScore):
         self.method = method
 
         # Precompute scatter matrices if necessary
-        if method == 'scatter':
+        if method == "scatter":
             self._scatter = np.cov(data, rowvar=False, ddof=0)
-        elif method == 'raw':
+        elif method == "raw":
             self._centered = data - np.mean(data, axis=0)
         else:
             raise ValueError('Unrecognized method "%s"' % method)
@@ -111,7 +111,7 @@ class GaussObsL0Pen(DecomposableScore):
         K = np.diag(1 / omegas)
         I_B = np.eye(self.p) - B.T
         log_term = self.n * np.log(omegas.prod())
-        if self.method == 'scatter':
+        if self.method == "scatter":
             # likelihood = 0.5 * self.n * (np.log(det_K) - np.trace(K @ I_B @ self._scatter @ I_B.T))
             likelihood = log_term + self.n * np.trace(K @ I_B @ self._scatter @ I_B.T)
         else:
@@ -215,7 +215,7 @@ class GaussObsL0Pen(DecomposableScore):
         b = np.zeros(self.p)
         # Compute the regression coefficients from a least squares
         # regression on the raw data
-        if self.method == 'raw':
+        if self.method == "raw":
             Y = self._centered[:, j]
             if len(parents) > 0:
                 X = np.atleast_2d(self._centered[:, parents])
@@ -228,7 +228,7 @@ class GaussObsL0Pen(DecomposableScore):
         # Or compute the regression coefficients from the
         # empirical covariance (scatter) matrix
         # i.e. b = Σ_{j,pa(j)} @ Σ_{pa(j), pa(j)}^-1
-        elif self.method == 'scatter':
+        elif self.method == "scatter":
             sigma = self._scatter[j, j]
             if len(parents) > 0:
                 cov_parents = self._scatter[parents, :][:, parents]

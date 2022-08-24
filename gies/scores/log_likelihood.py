@@ -1,4 +1,4 @@
-# Copyright 2020 Juan Luis Gamella Martin
+# Copyright 2022 Juan L. Gamella
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -71,8 +71,10 @@ def full(B, omegas, sample_covariances, n_obs):
     for j, sigma in enumerate(sample_covariances):
         K = np.diag(1 / omegas[j])
         det_K = np.prod(1 / omegas[j])
-        likelihood += n_obs[j] * (np.log(det_K) - np.trace(K @
-                                                           (np.eye(p) - B.T) @ sigma @ (np.eye(p) - B.T).T))
+        likelihood += n_obs[j] * (
+            np.log(det_K)
+            - np.trace(K @ (np.eye(p) - B.T) @ sigma @ (np.eye(p) - B.T).T)
+        )
     return likelihood * 0.5
 
 
@@ -173,6 +175,7 @@ def local_raw(j, b, omegas, data):
     sample_covariances = [np.cov(env, rowvar=False, ddof=0) for env in data]
     n_obs = [len(env) for env in data]
     return local(j, b, omegas, sample_covariances, n_obs)
+
 
 # def local(j,b,omegas,data):
 #     """New with manually computed scatter matrix"""
