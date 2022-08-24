@@ -183,7 +183,7 @@ def fit(
     # Unless indicated otherwise, initialize to the empty graph
     A0 = np.zeros((score_class.p, score_class.p)) if A0 is None else A0
     # GES procedure
-    total_score = 0
+    total_score = score_class.full_score(A0)
     A, score_change = A0, np.Inf
     # Run each phase
     while True:
