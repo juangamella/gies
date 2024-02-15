@@ -1,9 +1,13 @@
 # Greedy Interventional Equivalence Search (GIES) Algorithm for Causal Discovery
 
+[![PyPI version](https://badge.fury.io/py/gies.svg)](https://badge.fury.io/py/gies)
+[![Downloads](https://static.pepy.tech/badge/gies)](https://pepy.tech/project/gies)
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+
 This is a python implementation of the GIES algorithm from the paper [*"Characterization and Greedy Learning of Interventional
 Markov Equivalence Classes of Directed Acyclic Graphs"*](https://www.jmlr.org/papers/volume13/hauser12a/hauser12a.pdf) by Alain Hauser and Peter Bühlmann.
 
-The implementation is an extension of the [Python implementation](https://github.com/juangamella/ges) of the GES algorithm.
+The implementation is an extension of the [Python implementation](https://github.com/juangamella/ges) of the GES algorithm, and is the work of Olga Kolotuhina and Juan L. Gamella.
 
 ## Installation
 
