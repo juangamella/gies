@@ -1,1 +1,2 @@
+v0.0.2, 2024-06-23 -- Changed calls to deprecated type np.bool to bool
 v0.0.1, 2022-08-24 -- Initial release.
