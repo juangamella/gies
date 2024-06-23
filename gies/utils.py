@@ -358,7 +358,7 @@ def induced_subgraph(S, G):
        really the subgraph, as the nodes not in S still appear as
        disconnected nodes.
     """
-    mask = np.zeros_like(G, dtype=np.bool)
+    mask = np.zeros_like(G, dtype=bool)
     mask[list(S), :] = True
     mask = np.logical_and(mask, mask.T)
     subgraph = np.zeros_like(G)
@@ -391,7 +391,7 @@ def vstructures(A):
     # parents are adjacent in A
     vstructs = []
     for c in colliders:
-        for (i, j) in itertools.combinations(pa(c, A), 2):
+        for i, j in itertools.combinations(pa(c, A), 2):
             if A[i, j] == 0 and A[j, i] == 0:
                 # Ordering might be defensive here, as
                 # itertools.combinations already returns ordered
@@ -426,7 +426,7 @@ def unshielded_triples(A):
     # parents are adjacent in A
     unshielded_triples = []
     for c in triples:
-        for (i, j) in itertools.combinations(neighbors(c, skeleton_A), 2):
+        for i, j in itertools.combinations(neighbors(c, skeleton_A), 2):
             if A[i, j] == 0 and A[j, i] == 0:
                 # Ordering might be defensive here, as
                 # itertools.combinations already returns ordered
@@ -645,7 +645,7 @@ def dag_to_cpdag(G):
     cpdag[labelled == 1] = labelled[labelled == 1]
     # set reversible edges
     fros, tos = np.where(labelled == -1)
-    for (x, y) in zip(fros, tos):
+    for x, y in zip(fros, tos):
         cpdag[x, y], cpdag[y, x] = 1, 1
     return cpdag
 

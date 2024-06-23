@@ -251,7 +251,7 @@ def forward_step(A, cache, debug=0):
     # For each edge, enumerate and score all valid operators
     valid_operators = []
     print("  %d candidate edges" % len(edge_candidates)) if debug > 1 else None
-    for (x, y) in edge_candidates:
+    for x, y in edge_candidates:
         valid_operators += score_valid_insert_operators(
             x, y, A, cache, debug=max(0, debug - 1)
         )
@@ -310,7 +310,7 @@ def backward_step(A, cache, debug=0):
     # For each edge, enumerate and score all valid operators
     valid_operators = []
     print("  %d candidate edges" % len(edge_candidates)) if debug > 1 else None
-    for (x, y) in edge_candidates:
+    for x, y in edge_candidates:
         valid_operators += score_valid_delete_operators(
             x, y, A, cache, debug=max(0, debug - 1)
         )
@@ -365,7 +365,7 @@ def turning_step(A, cache, debug=0):
     # For each edge, enumerate and score all valid operators
     valid_operators = []
     print("  %d candidate edges" % len(edge_candidates)) if debug > 1 else None
-    for (x, y) in edge_candidates:
+    for x, y in edge_candidates:
         valid_operators += score_valid_turn_operators(
             x, y, A, cache, debug=max(0, debug - 1)
         )
@@ -481,11 +481,11 @@ def score_valid_insert_operators(x, y, A, cache, debug=0):
     # if they pass validity condition 2 (see below)
     T0 = sorted(utils.neighbors(y, A) - utils.adj(x, A))
     if len(T0) == 0:
-        subsets = np.zeros((1, p + 1), dtype=np.bool)
+        subsets = np.zeros((1, p + 1), dtype=bool)
     else:
-        subsets = np.zeros((2 ** len(T0), p + 1), dtype=np.bool)
+        subsets = np.zeros((2 ** len(T0), p + 1), dtype=bool)
         subsets[:, T0] = utils.cartesian(
-            [np.array([False, True])] * len(T0), dtype=np.bool
+            [np.array([False, True])] * len(T0), dtype=bool
         )
     valid_operators = []
     print("    insert(%d,%d) T0=" % (x, y), set(T0)) if debug > 1 else None
@@ -662,11 +662,11 @@ def score_valid_delete_operators(x, y, A, cache, debug=0):
     H0 = sorted(na_yx)
     p = len(A)
     if len(H0) == 0:
-        subsets = np.zeros((1, (p + 1)), dtype=np.bool)
+        subsets = np.zeros((1, (p + 1)), dtype=bool)
     else:
-        subsets = np.zeros((2 ** len(H0), (p + 1)), dtype=np.bool)
+        subsets = np.zeros((2 ** len(H0), (p + 1)), dtype=bool)
         subsets[:, H0] = utils.cartesian(
-            [np.array([False, True])] * len(H0), dtype=np.bool
+            [np.array([False, True])] * len(H0), dtype=bool
         )
     valid_operators = []
     print("    delete(%d,%d) H0=" % (x, y), set(H0)) if debug > 1 else None
@@ -869,11 +869,11 @@ def score_valid_turn_operators_dir(x, y, A, cache, debug=0):
     p = len(A)
     T0 = sorted(utils.neighbors(y, A) - utils.adj(x, A))
     if len(T0) == 0:
-        subsets = np.zeros((1, p + 1), dtype=np.bool)
+        subsets = np.zeros((1, p + 1), dtype=bool)
     else:
-        subsets = np.zeros((2 ** len(T0), p + 1), dtype=np.bool)
+        subsets = np.zeros((2 ** len(T0), p + 1), dtype=bool)
         subsets[:, T0] = utils.cartesian(
-            [np.array([False, True])] * len(T0), dtype=np.bool
+            [np.array([False, True])] * len(T0), dtype=bool
         )
     valid_operators = []
     print("    turn(%d,%d) T0=" % (x, y), set(T0)) if debug > 1 else None
@@ -991,8 +991,8 @@ def score_valid_turn_operators_undir(x, y, A, cache, debug=0):
     # one which is not adjacent to x
     p = len(A)
     C0 = sorted(utils.neighbors(y, A) - {x})
-    subsets = np.zeros((2 ** len(C0), p + 1), dtype=np.bool)
-    subsets[:, C0] = utils.cartesian([np.array([False, True])] * len(C0), dtype=np.bool)
+    subsets = np.zeros((2 ** len(C0), p + 1), dtype=bool)
+    subsets[:, C0] = utils.cartesian([np.array([False, True])] * len(C0), dtype=bool)
     # Remove all subsets which do not contain at least one non-adjacent node to x
     to_remove = (subsets[:, non_adjacents] == False).all(axis=1)
     subsets = utils.delete(subsets, to_remove, axis=0)
