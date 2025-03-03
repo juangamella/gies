@@ -3,6 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/gies.svg)](https://badge.fury.io/py/gies)
 [![Downloads](https://static.pepy.tech/badge/gies)](https://pepy.tech/project/gies)
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![Donate](https://img.shields.io/static/v1.svg?logo=Github%20Sponsors&label=donate&message=Github%20Sponsors&color=e874ff)](https://github.com/sponsors/juangamella)
 
 This is a python implementation of the GIES algorithm from the paper [*"Characterization and Greedy Learning of Interventional
 Markov Equivalence Classes of Directed Acyclic Graphs"*](https://www.jmlr.org/papers/volume13/hauser12a/hauser12a.pdf) by Alain Hauser and Peter Bühlmann.
