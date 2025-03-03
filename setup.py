@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="gies",
-    version="0.0.2",
+    version="0.0.3",
     author="Juan L. Gamella, Olga Kolotuhina",
     author_email="juangamella@gmail.com",
     packages=["gies", "gies.test", "gies.scores"],
